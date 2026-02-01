@@ -7,9 +7,12 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle,
-  PermissionFlagsBits
+  ButtonStyle
 } = require('discord.js');
+
+/* ===== FIX FETCH (WAJIB BIAR RAILWAY GA CRASH) ===== */
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 const fs = require('fs');
 
@@ -24,7 +27,7 @@ const EMBED_COLOR = 0x1F6FEB;
 const FOOTER_ICON =
   'https://cdn.discordapp.com/attachments/1449386611036127343/1467515005825187972/20260107_131913.png';
 
-const format = n => Number(n).toLocaleString('id-ID');
+const format = n => n.toLocaleString('id-ID');
 
 /* ================= CLIENT ================= */
 
@@ -56,44 +59,35 @@ function addData(id, robux, vouch = 1) {
 
 /* ================= WIB TIME ================= */
 
-function getSmartTime() {
-  const now = new Date();
-
-  const time = new Intl.DateTimeFormat('id-ID', {
+function getTimeWIB() {
+  return new Date().toLocaleString('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
     minute: '2-digit'
-  }).format(now);
-
-  return `Today at ${time}`;
+  });
 }
 
 /* ================= COMMANDS ================= */
 
 const commands = [
+
   new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Robux tax calculator')
-    .addIntegerOption(o =>
-      o.setName('jumlah').setDescription('jumlah robux').setRequired(true))
+    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
-        .setDescription('mode')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }
-        )
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('rate').setDescription('harga per 1 robux').setRequired(true)),
+        ).setRequired(true))
+    .addIntegerOption(o => o.setName('rate').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('placeid')
-    .setDescription('Get place id player')
+    .setDescription('Mengambil place id player')
     .addStringOption(o =>
-      o.setName('username')
-        .setDescription('username roblox')
-        .setRequired(true)),
+      o.setName('username').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('leaderboard')
@@ -101,41 +95,31 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin edit leaderboard manually')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addUserOption(o =>
-      o.setName('user').setDescription('target user').setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('robux').setDescription('total robux').setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('vouch').setDescription('total vouch').setRequired(true))
-].map(c => c.toJSON()); // ← aman, semua field ada
+    .setDescription('Admin only edit')
+    .addUserOption(o => o.setName('user').setRequired(true))
+    .addIntegerOption(o => o.setName('robux').setRequired(true))
+    .addIntegerOption(o => o.setName('vouch').setRequired(true))
+
+].map(c => c.toJSON());
 
 /* ================= REGISTER ================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  try {
-    await rest.put(Routes.applicationCommands(clientId), {
-      body: commands
-    });
-    console.log('✅ Slash Commands Registered');
-  } catch (e) {
-    console.error(e);
-  }
+  await rest.put(Routes.applicationCommands(clientId), { body: commands });
 })();
 
 /* ================= READY ================= */
 
-client.once('clientReady', () => {
+client.once('ready', () => {
   console.log('✅ Bot Online');
 });
 
 /* ================= AUTO VOUCH ================= */
 
 const vouchRegex =
-/(vouch|vouc|voc|voch|v0uch|vuch|vouchh|vouhc|v0cuh)/i;
+/(vouch|voc|vouc|voch|vuch|v0uch|v0c|vouhc|v0cuh)/i;
 
 function parseRobux(text) {
   const match = text.match(/(\d+(?:\.\d+)?k?)/i);
@@ -172,7 +156,7 @@ function buildEmbed(page = 0) {
     .sort((a, b) => b[1].robux - a[1].robux);
 
   const perPage = 10;
-  const pages = Math.max(1, Math.ceil(list.length / perPage));
+  const pages = Math.ceil(list.length / perPage) || 1;
 
   const slice = list.slice(page * perPage, page * perPage + perPage);
 
@@ -190,7 +174,7 @@ function buildEmbed(page = 0) {
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
     .setFooter({
-      text: `Nice Blox • Page ${page + 1}/${pages} | ${getSmartTime()}`,
+      text: `Nice Blox • Page ${page + 1}/${pages} | Today ${getTimeWIB()}`,
       iconURL: FOOTER_ICON
     });
 
@@ -205,7 +189,6 @@ client.on('interactionCreate', async i => {
 
   /* TAX */
   if (i.commandName === 'tax') {
-
     const jumlah = i.options.getInteger('jumlah');
     const mode = i.options.getString('mode');
     const rate = i.options.getInteger('rate');
@@ -236,75 +219,50 @@ Harga : Rp ${format(harga)}`
     });
   }
 
-  /* PLACEID */
+  /* ===== PLACEID (VERSI LAMA WORKING) ===== */
   if (i.commandName === 'placeid') {
-    const user = i.options.getString('username');
 
-    return i.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(EMBED_COLOR)
-          .setTitle('Place ID Found')
-          .setDescription(
-`Username : ${user}
-Place ID : 123456`
-          )
-      ]
-    });
-  }
+    await i.deferReply();
 
-  /* LEADERBOARD */
-  if (i.commandName === 'leaderboard') {
+    try {
+      const username = i.options.getString('username');
 
-    let page = 0;
+      const userRes = await fetch(
+        'https://users.roblox.com/v1/usernames/users',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernames: [username] })
+        }
+      );
 
-    const { embed, pages } = buildEmbed(page);
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary)
-    );
+      if (!userId)
+        return i.editReply('User tidak ditemukan.');
 
-    const msg = await i.reply({
-      embeds: [embed],
-      components: [row],
-      fetchReply: true
-    });
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
+      );
 
-    const collector = msg.createMessageComponentCollector({ time: 120000 });
+      const gameData = await gameRes.json();
 
-    collector.on('collect', async btn => {
+      const game = gameData.data?.find(g => g.rootPlace?.id);
+      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
-      if (btn.user.id !== i.user.id)
-        return btn.reply({ content: 'Bukan buat kamu 😆', ephemeral: true });
+      const embed = new EmbedBuilder()
+        .setColor(EMBED_COLOR)
+        .setTitle(`Place ID milik ${username} :`)
+        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
 
-      if (btn.customId === 'prev') page--;
-      if (btn.customId === 'next') page++;
+      return i.editReply({ embeds: [embed] });
 
-      if (page < 0) page = 0;
-      if (page >= pages) page = pages - 1;
-
-      const updated = buildEmbed(page);
-
-      btn.update({ embeds: [updated.embed] });
-    });
-  }
-
-  /* ADMIN */
-  if (i.commandName === 'setleaderboard') {
-
-    const user = i.options.getUser('user');
-    const robux = i.options.getInteger('robux');
-    const vouch = i.options.getInteger('vouch');
-
-    db[user.id] = { robux, vouch };
-    saveDB();
-
-    return i.reply('✅ Updated');
+    } catch {
+      return i.editReply('Gagal mengambil data Roblox.');
+    }
   }
 
 });
-
-/* ================= LOGIN ================= */
 
 client.login(token);

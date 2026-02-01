@@ -161,7 +161,7 @@ Rate ${rate}`
         /* ==== EMBED ==== */
         const embed = new EmbedBuilder()
           .setColor(0x5865F2)
-          .setTitle('Roblox Place Info')
+          .setTitle('📍 Place ID Found')
           .setDescription(
 `Username : ${username}
 Place ID : ${placeId}`

@@ -18,6 +18,7 @@ const TAX = 0.3;
 const format = n => n.toLocaleString('id-ID');
 
 
+
 /* =========================
    COMMANDS
 ========================= */
@@ -32,7 +33,7 @@ const taxCommand = new SlashCommandBuilder()
   )
   .addStringOption(o =>
     o.setName('mode')
-      .setDescription('Mode perhitungan')
+      .setDescription('Mode hitung')
       .addChoices(
         { name: 'After Tax', value: 'after' },
         { name: 'Before Tax', value: 'before' }
@@ -46,6 +47,7 @@ const taxCommand = new SlashCommandBuilder()
   );
 
 
+
 const cekCommand = new SlashCommandBuilder()
   .setName('cek')
   .setDescription('Cek place id & gamepass dari username')
@@ -56,8 +58,9 @@ const cekCommand = new SlashCommandBuilder()
   );
 
 
+
 /* =========================
-   REGISTER COMMANDS
+   REGISTER
 ========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -65,14 +68,10 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    {
-      body: [
-        taxCommand.toJSON(),
-        cekCommand.toJSON()
-      ]
-    }
+    { body: [taxCommand.toJSON(), cekCommand.toJSON()] }
   );
 })();
+
 
 
 /* =========================
@@ -84,6 +83,7 @@ client.once('ready', () => {
 });
 
 
+
 /* =========================
    INTERACTION
 ========================= */
@@ -93,7 +93,9 @@ client.on('interactionCreate', async interaction => {
 
 
 
-  /* ========= TAX ========= */
+  /* =========================
+     TAX
+  ========================= */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -125,7 +127,10 @@ Rate ${rate}`
 
 
 
-  /* ========= CEK USER ========= */
+  /* =========================
+     CEK USERNAME
+     (UNIVERSE METHOD - STABLE)
+  ========================= */
   if (interaction.commandName === 'cek') {
 
     await interaction.deferReply();
@@ -133,12 +138,15 @@ Rate ${rate}`
     try {
       const username = interaction.options.getString('username');
 
-      // username -> userId
-      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernames: [username] })
-      });
+      /* 1️⃣ username -> userId */
+      const userRes = await fetch(
+        'https://users.roblox.com/v1/usernames/users',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernames: [username] })
+        }
+      );
 
       const userData = await userRes.json();
       const userId = userData.data?.[0]?.id;
@@ -148,52 +156,44 @@ Rate ${rate}`
 
 
 
-      // ambil game (creations)
-      const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=1`
+      /* 2️⃣ userId -> universe -> placeId */
+      const uniRes = await fetch(
+        `https://develop.roblox.com/v1/users/${userId}/universes`
       );
 
-      const gameData = await gameRes.json();
-      const placeId = gameData.data?.[0]?.rootPlace?.id;
+      const uniData = await uniRes.json();
+      const placeId = uniData.data?.[0]?.rootPlaceId;
 
-      if (!placeId)
-        return interaction.editReply(
-`Roblox Info
 
-Username : ${username}
-Place ID : Tidak ditemukan
 
-Gamepass :
-Tidak ada gamepass`
+      /* 3️⃣ placeId -> gamepass */
+      let gamepassText = 'Tidak ada gamepass';
+
+      if (placeId) {
+        const passRes = await fetch(
+          `https://games.roblox.com/v1/games/${placeId}/game-passes?limit=50`
         );
 
+        const passData = await passRes.json();
 
-
-      // ambil gamepass dari place
-      const passRes = await fetch(
-        `https://games.roblox.com/v1/games/${placeId}/game-passes?limit=50`
-      );
-
-      const passData = await passRes.json();
-
-      let passText = 'Tidak ada gamepass';
-
-      if (passData.data?.length) {
-        passText = passData.data
-          .map(p => `• ${p.name} — ${p.price ?? 0} Robux`)
-          .join('\n');
+        if (passData.data?.length) {
+          gamepassText = passData.data
+            .map(p => `- ${p.name} (${format(p.price ?? 0)} Robux)`)
+            .join('\n');
+        }
       }
 
 
 
+      /* 4️⃣ TEXT OUTPUT (copy friendly) */
       return interaction.editReply(
 `Roblox Info
 
 Username : ${username}
-Place ID : ${placeId}
+Place ID : ${placeId ?? 'Tidak ditemukan'}
 
 Gamepass :
-${passText}`
+${gamepassText}`
       );
 
     } catch (err) {
@@ -201,8 +201,8 @@ ${passText}`
       return interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
-
 });
+
 
 
 client.login(token);

@@ -7,7 +7,6 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-const fetch = require('node-fetch');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;

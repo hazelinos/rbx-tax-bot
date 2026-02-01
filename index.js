@@ -16,6 +16,10 @@ const client = new Client({
 
 const TAX = 0.3;
 
+/* =========================
+   HELPER
+========================= */
+
 const format = n => n.toLocaleString('id-ID');
 
 
@@ -23,14 +27,13 @@ const format = n => n.toLocaleString('id-ID');
    COMMANDS
 ========================= */
 
-// ===== TAX =====
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
   .setDescription('Robux tax calculator')
 
   .addIntegerOption(o =>
     o.setName('jumlah')
-      .setDescription('Jumlah Robux')
+      .setDescription('Jumlah robux')
       .setRequired(true)
   )
 
@@ -46,22 +49,20 @@ const taxCommand = new SlashCommandBuilder()
 
   .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Set custom price per Robux')
+      .setDescription('Custom price per Robux')
       .setRequired(true)
   );
 
 
 
-// ===== CEK USER =====
 const cekCommand = new SlashCommandBuilder()
   .setName('cek')
-  .setDescription('Cek place id & gamepass dari username Roblox')
+  .setDescription('Cek place id & gamepass user Roblox')
   .addStringOption(o =>
     o.setName('username')
       .setDescription('Username Roblox')
       .setRequired(true)
   );
-
 
 
 /* =========================
@@ -83,7 +84,6 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 
-
 /* =========================
    READY
 ========================= */
@@ -93,9 +93,8 @@ client.once('ready', () => {
 });
 
 
-
 /* =========================
-   INTERACTION
+   INTERACTIONS
 ========================= */
 
 client.on('interactionCreate', async interaction => {
@@ -103,9 +102,7 @@ client.on('interactionCreate', async interaction => {
 
 
 
-  /* =========================
-     TAX
-  ========================= */
+  /* ================= TAX ================= */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -136,22 +133,22 @@ Harga    : Rp ${format(harga)}
 Rate ${rate}`
       );
 
-    return interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed] });
   }
 
 
 
-  /* =========================
-     CEK USERNAME
-  ========================= */
+  /* ================= CEK USER ================= */
   if (interaction.commandName === 'cek') {
+
+    await interaction.deferReply();
 
     const username = interaction.options.getString('username');
 
     try {
 
-      // 1️⃣ username → userId
-      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+      /* user id */
+      const userRes = await fetch(`https://users.roblox.com/v1/usernames/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ usernames: [username] })
@@ -161,35 +158,32 @@ Rate ${rate}`
       const userId = userData.data[0]?.id;
 
       if (!userId)
-        return interaction.reply('User tidak ditemukan.');
+        return interaction.editReply('User tidak ditemukan.');
 
 
 
-      // 2️⃣ ambil game milik user
+      /* place id */
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=1`
       );
 
       const gameData = await gameRes.json();
-      const placeId = gameData.data[0]?.rootPlace?.id;
-
-      if (!placeId)
-        return interaction.reply('User tidak punya game.');
+      const placeId = gameData.data[0]?.rootPlace?.id ?? 'Tidak ditemukan';
 
 
 
-      // 3️⃣ ambil gamepass
+      /* gamepass */
       const passRes = await fetch(
-        `https://games.roblox.com/v1/games/${placeId}/game-passes?limit=50`
+        `https://inventory.roblox.com/v2/users/${userId}/inventory/34?limit=50`
       );
 
       const passData = await passRes.json();
 
-      let passList = 'Tidak ada gamepass';
+      let passText = 'Tidak ada gamepass';
 
       if (passData.data?.length) {
-        passList = passData.data
-          .map(p => `• ${p.name} — ${format(p.price ?? 0)} Robux`)
+        passText = passData.data
+          .map(p => `• ${p.name} (${p.price ?? 0} R$)`)
           .join('\n');
       }
 
@@ -197,24 +191,22 @@ Rate ${rate}`
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle('Roblox Info')
+        .setTitle('Roblox User Info')
         .setDescription(
-`Username : ${username}
-Place ID : ${placeId}
+`Place ID : ${placeId}
 
 Gamepass
-${passList}`
+${passText}`
         );
 
-      interaction.reply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed] });
 
-    } catch {
-      interaction.reply('❌ Gagal mengambil data Roblox.');
+    } catch (e) {
+      await interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
 
 });
-
 
 
 client.login(token);

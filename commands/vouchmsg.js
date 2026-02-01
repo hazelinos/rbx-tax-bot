@@ -6,7 +6,6 @@ const {
 const fs = require('fs');
 
 const DB_FILE = './leaderboard.json';
-const VOUCH_CHANNEL_ID = 'ISI_CHANNEL_ID_DISINI'; // ganti
 
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) return {};
@@ -17,7 +16,7 @@ function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-/* 🔥 FIX PARSER */
+/* 🔥 FIX PARSER (ambil angka dekat robux doang) */
 function parseRobux(text) {
   const match = text.toLowerCase()
     .match(/(\d+(?:[.,]\d+)?)\s*(robux|rbx|r\$|r)/i);
@@ -46,7 +45,10 @@ module.exports = {
     const id = i.options.getString('id');
 
     try {
-      const channel = await i.client.channels.fetch(VOUCH_CHANNEL_ID);
+
+      /* 🔥 AUTO CHANNEL */
+      const channel = i.channel;
+
       const msg = await channel.messages.fetch(id);
 
       const robux = parseRobux(msg.content);

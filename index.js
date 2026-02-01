@@ -8,7 +8,6 @@ const {
 } = require('discord.js');
 
 const fs = require('fs');
-const fetch = require('node-fetch');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;

@@ -39,6 +39,7 @@ const client = new Client({
 /* ================= DATABASE ================= */
 
 const DB_FILE = './leaderboard.json';
+
 let db = fs.existsSync(DB_FILE)
   ? JSON.parse(fs.readFileSync(DB_FILE))
   : {};
@@ -66,7 +67,7 @@ const commands = [
         .setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
-        .setDescription('Before / After tax')
+        .setDescription('Before or After tax')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }
@@ -75,6 +76,14 @@ const commands = [
     .addIntegerOption(o =>
       o.setName('rate')
         .setDescription('Harga per robux')
+        .setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName('placeid')
+    .setDescription('Ambil place id player')
+    .addStringOption(o =>
+      o.setName('username')
+        .setDescription('Username roblox')
         .setRequired(true)),
 
   new SlashCommandBuilder()
@@ -114,10 +123,10 @@ client.once('ready', () => {
   console.log('✅ Bot Online');
 });
 
-/* ================= AUTO VOUCH (FULL REGEX) ================= */
+/* ================= AUTO VOUCH ================= */
 
 const vouchRegex =
-/(vouch+|vou?ch|vouc|voc|voch|v0uch|vuch|v0c|vouhc|v0cuh|vo+uc+h+)/i;
+/(vouch+|vouc|voc|voch|v0uch|vuch|v0c|vouhc)/i;
 
 function parseRobux(text) {
   const m = text.match(/(\d+(?:\.\d+)?k?)/i);
@@ -132,6 +141,7 @@ client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
   const t = msg.content.toLowerCase();
+
   if (!vouchRegex.test(t)) return;
 
   const amount = parseRobux(t);
@@ -157,14 +167,11 @@ function buildEmbed(page = 0) {
 
   const slice = entries.slice(page * perPage, page * perPage + perPage);
 
-  const totalRobux = entries.reduce((a, b) => a + b[1].robux, 0);
-  const totalVouch = entries.reduce((a, b) => a + b[1].vouch, 0);
-
   let desc = '';
 
-  slice.forEach(([id, data], i) => {
+  slice.forEach(([id, d], i) => {
     const rank = String(i + 1 + page * perPage).padStart(2, '0');
-    desc += `${rank} — <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
+    desc += `${rank} — <@${id}> • ${format(d.robux)} Robux • ${d.vouch} Vouch\n`;
   });
 
   if (!desc) desc = 'Belum ada data';
@@ -172,19 +179,14 @@ function buildEmbed(page = 0) {
   return new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
-    .setDescription(
-`${desc}
-
-Total Robux : ${format(totalRobux)}
-Total Vouch : ${totalVouch}`
-    )
+    .setDescription(desc)
     .setFooter({
-      text: `Nice Blox • Cheap & Trusted Roblox store • Page ${page + 1}/${pages}`,
+      text: `Nice Blox • Page ${page + 1} | Today`,
       iconURL: FOOTER_ICON
     });
 }
 
-/* ================= INTERACTION ================= */
+/* ================= INTERACTIONS ================= */
 
 client.on('interactionCreate', async i => {
 
@@ -221,20 +223,52 @@ Harga : Rp ${format(harga)}`
     return i.reply({ embeds: [embed] });
   }
 
+  /* PLACEID */
+  if (i.commandName === 'placeid') {
+
+    await i.deferReply();
+
+    const username = i.options.getString('username');
+
+    try {
+
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
+
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
+
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=10`
+      );
+
+      const gameData = await gameRes.json();
+
+      const placeId = gameData.data?.[0]?.rootPlace?.id || 'Tidak ditemukan';
+
+      const embed = new EmbedBuilder()
+        .setColor(EMBED_COLOR)
+        .setTitle(`Place ID milik ${username}`)
+        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
+
+      return i.editReply({ embeds: [embed] });
+
+    } catch {
+      return i.editReply('Gagal ambil data');
+    }
+  }
+
   /* LEADERBOARD */
   if (i.commandName === 'leaderboard') {
 
     let page = 0;
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('prev')
-        .setLabel('◀ Prev')
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId('next')
-        .setLabel('Next ▶')
-        .setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId('prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary)
     );
 
     const msg = await i.reply({
@@ -246,9 +280,6 @@ Harga : Rp ${format(harga)}`
     const collector = msg.createMessageComponentCollector({ time: 120000 });
 
     collector.on('collect', btn => {
-
-      if (btn.user.id !== i.user.id)
-        return btn.reply({ content: 'Bukan buat kamu 😆', ephemeral: true });
 
       if (btn.customId === 'prev') page--;
       if (btn.customId === 'next') page++;
@@ -262,21 +293,20 @@ Harga : Rp ${format(harga)}`
     });
   }
 
-  /* ADMIN SET */
+  /* ADMIN */
   if (i.commandName === 'setleaderboard') {
 
     const user = i.options.getUser('user');
-    const robux = i.options.getInteger('robux');
-    const vouch = i.options.getInteger('vouch');
+    db[user.id] = {
+      robux: i.options.getInteger('robux'),
+      vouch: i.options.getInteger('vouch')
+    };
 
-    db[user.id] = { robux, vouch };
     saveDB();
 
-    return i.reply({ content: '✅ Updated', ephemeral: true });
+    return i.reply({ content: 'Updated', ephemeral: true });
   }
 
 });
-
-/* ================= LOGIN ================= */
 
 client.login(token);

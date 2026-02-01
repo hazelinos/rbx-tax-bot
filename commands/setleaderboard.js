@@ -95,7 +95,7 @@ module.exports = {
 User : <@${user.id}>
 Robux : ${robuxFinal}
 Vouch : ${vouchInput}
-Mode : ${after ? 'After Tax' : 'Normal'}`
+Jenis : ${after ? 'After Tax' : 'Before Tax'}`
     );
   }
 };

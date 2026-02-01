@@ -7,8 +7,6 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-/* ================= CONFIG ================= */
-
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
@@ -19,11 +17,16 @@ const client = new Client({
 const TAX = 0.3;
 const format = n => n.toLocaleString('id-ID');
 
+/* 🔵 warna embed global (biru tua) */
+const EMBED_COLOR = 0x1F6FEB;
+
+
+
 /* ================= COMMANDS ================= */
 
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Calculate Robux tax, gamepass & price')
+  .setDescription('Robux tax calculator')
   .addIntegerOption(o =>
     o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
   .addStringOption(o =>
@@ -49,6 +52,8 @@ const placeCommand = new SlashCommandBuilder()
       .setRequired(true)
   );
 
+
+
 /* ================= REGISTER ================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -60,18 +65,24 @@ const rest = new REST({ version: '10' }).setToken(token);
   );
 })();
 
+
+
 /* ================= READY ================= */
 
 client.once('ready', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
+
+
 /* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  /* ================= TAX ================= */
+
+
+  /* ===== TAX ===== */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -91,7 +102,7 @@ client.on('interactionCreate', async interaction => {
     const harga = gamepass * rate;
 
     const embed = new EmbedBuilder()
-      .setColor(0x1f3cff) // biru tua
+      .setColor(EMBED_COLOR)
       .setTitle('Robux Tax Calculator')
       .setDescription(
 `Gamepass : ${format(gamepass)} Robux
@@ -105,7 +116,9 @@ Rate ${rate}`
     return interaction.reply({ embeds: [embed] });
   }
 
-  /* ================= PLACE ID ================= */
+
+
+  /* ===== PLACEID ===== */
   if (interaction.commandName === 'placeid') {
 
     await interaction.deferReply();
@@ -113,7 +126,7 @@ Rate ${rate}`
     try {
       const username = interaction.options.getString('username');
 
-      /* username -> userId */
+      // username -> userId
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -129,9 +142,11 @@ Rate ${rate}`
       if (!userId)
         return interaction.editReply('User tidak ditemukan.');
 
-      /* user -> games */
+
+
+      // creations -> place id (WORKING METHOD)
       const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=10`
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
       );
 
       const gameData = await gameRes.json();
@@ -139,22 +154,26 @@ Rate ${rate}`
       const game = gameData.data?.find(g => g.rootPlace?.id);
       const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
-      const embed = new EmbedBuilder()
-        .setColor(0x1f3cff)
-        .setTitle('Place ID Found')
-        .setDescription(
-`Place ID milik ${username}:
 
-${placeId}`
+
+      const embed = new EmbedBuilder()
+        .setColor(EMBED_COLOR)
+        .setTitle(`Place ID milik ${username} :`)
+        .setDescription(
+`\`\`\`
+${placeId}
+\`\`\``
         );
 
       return interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
-      console.error(err);
-      interaction.editReply('Gagal mengambil data Roblox.');
+      console.log(err);
+      return interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
+
 });
+
 
 client.login(token);

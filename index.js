@@ -39,9 +39,10 @@ const client = new Client({
 /* ================= DATABASE ================= */
 
 const DB_FILE = './leaderboard.json';
-let db = fs.existsSync(DB_FILE)
-  ? JSON.parse(fs.readFileSync(DB_FILE))
-  : {};
+let db = {};
+
+if (fs.existsSync(DB_FILE))
+  db = JSON.parse(fs.readFileSync(DB_FILE));
 
 const saveDB = () =>
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -56,72 +57,44 @@ function addData(id, robux, vouch = 1) {
 /* ================= WIB TIME ================= */
 
 function getSmartTime() {
-  const time = new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
     minute: '2-digit'
   }).format(new Date());
-
-  return `Today at ${time}`;
 }
 
-/* ================= COMMANDS (SAFE BUILDER) ================= */
+/* ================= COMMANDS ================= */
 
 const commands = [
-
-  /* TAX */
   new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Robux tax calculator')
-    .addIntegerOption(o =>
-      o.setName('jumlah')
-        .setDescription('jumlah robux')
-        .setRequired(true))
+    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
-        .setDescription('mode tax')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }
-        )
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('rate')
-        .setDescription('harga per robux')
-        .setRequired(true)),
+        ).setRequired(true))
+    .addIntegerOption(o => o.setName('rate').setRequired(true)),
 
-  /* PLACEID (ROBLOX API) */
   new SlashCommandBuilder()
     .setName('placeid')
-    .setDescription('Ambil place id player roblox')
-    .addStringOption(o =>
-      o.setName('username')
-        .setDescription('username roblox')
-        .setRequired(true)),
+    .setDescription('Mengambil place id player')
+    .addStringOption(o => o.setName('username').setRequired(true)),
 
-  /* LEADERBOARD */
   new SlashCommandBuilder()
     .setName('leaderboard')
     .setDescription('Top Spend Robux & Vouch'),
 
-  /* ADMIN SET */
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin edit leaderboard manual')
+    .setDescription('Admin edit leaderboard')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addUserOption(o =>
-      o.setName('user')
-        .setDescription('target user')
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('robux')
-        .setDescription('total robux')
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('vouch')
-        .setDescription('total vouch')
-        .setRequired(true))
-
+    .addUserOption(o => o.setName('user').setRequired(true))
+    .addIntegerOption(o => o.setName('robux').setRequired(true))
+    .addIntegerOption(o => o.setName('vouch').setRequired(true))
 ].map(c => c.toJSON());
 
 /* ================= REGISTER ================= */
@@ -129,10 +102,7 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  await rest.put(Routes.applicationCommands(clientId), {
-    body: commands
-  });
-  console.log('✅ Slash Commands Registered');
+  await rest.put(Routes.applicationCommands(clientId), { body: commands });
 })();
 
 /* ================= READY ================= */
@@ -150,16 +120,16 @@ function parseRobux(text) {
   const match = text.match(/(\d+(?:\.\d+)?k?)/i);
   if (!match) return null;
 
-  let val = match[1].toLowerCase();
-  if (val.includes('k')) return parseFloat(val) * 1000;
-  return parseFloat(val);
+  const val = match[1].toLowerCase();
+  return val.includes('k')
+    ? parseFloat(val) * 1000
+    : parseFloat(val);
 }
 
 client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
   const content = msg.content.toLowerCase();
-
   if (!vouchRegex.test(content)) return;
 
   const amount = parseRobux(content);
@@ -176,7 +146,6 @@ client.on('messageCreate', msg => {
 /* ================= LEADERBOARD ================= */
 
 function buildEmbed(page = 0) {
-
   const list = Object.entries(db)
     .sort((a, b) => b[1].robux - a[1].robux);
 
@@ -199,7 +168,7 @@ function buildEmbed(page = 0) {
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
     .setFooter({
-      text: `Nice Blox • Page ${page + 1}/${pages} | ${getSmartTime()}`,
+      text: `Nice Blox • Page ${page + 1}/${pages} | Today at ${getSmartTime()}`,
       iconURL: FOOTER_ICON
     });
 
@@ -212,7 +181,7 @@ client.on('interactionCreate', async i => {
 
   if (!i.isChatInputCommand()) return;
 
-  /* TAX */
+  /* ===== TAX ===== */
   if (i.commandName === 'tax') {
 
     const jumlah = i.options.getInteger('jumlah');
@@ -237,15 +206,18 @@ client.on('interactionCreate', async i => {
           .setColor(EMBED_COLOR)
           .setTitle('Robux Tax Calculator')
           .setDescription(
-`Gamepass : ${format(gamepass)}
-Diterima : ${format(diterima)}
-Harga : Rp ${format(harga)}`
+`Gamepass : ${format(gamepass)} Robux
+Diterima : ${format(diterima)} Robux
+Harga    : Rp ${format(harga)}
+
+──────────────
+Rate ${rate}`
           )
       ]
     });
   }
 
-  /* PLACEID (ROBLOX API WORKING) */
+  /* ===== PLACEID (REAL API) ===== */
   if (i.commandName === 'placeid') {
 
     await i.deferReply();
@@ -277,21 +249,19 @@ Harga : Rp ${format(harga)}`
       const game = gameData.data?.find(g => g.rootPlace?.id);
       const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
-      return i.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(EMBED_COLOR)
-            .setTitle(`Place ID milik ${username} :`)
-            .setDescription(`\`\`\`\n${placeId}\n\`\`\``)
-        ]
-      });
+      const embed = new EmbedBuilder()
+        .setColor(EMBED_COLOR)
+        .setTitle(`Place ID milik ${username} :`)
+        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
+
+      return i.editReply({ embeds: [embed] });
 
     } catch {
       return i.editReply('Gagal mengambil data Roblox.');
     }
   }
 
-  /* LEADERBOARD */
+  /* ===== LEADERBOARD ===== */
   if (i.commandName === 'leaderboard') {
 
     let page = 0;
@@ -322,11 +292,12 @@ Harga : Rp ${format(harga)}`
       if (page < 0) page = 0;
       if (page >= pages) page = pages - 1;
 
-      btn.update({ embeds: [buildEmbed(page).embed] });
+      const updated = buildEmbed(page);
+      btn.update({ embeds: [updated.embed] });
     });
   }
 
-  /* ADMIN SET */
+  /* ===== ADMIN ===== */
   if (i.commandName === 'setleaderboard') {
 
     const user = i.options.getUser('user');

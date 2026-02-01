@@ -18,19 +18,31 @@ module.exports = {
     .setName('setleaderboard')
     .setDescription('Admin add/remove leaderboard')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+
+    /* ⭐ WAJIB ADA DESCRIPTION SEMUA */
     .addStringOption(o =>
       o.setName('mode')
+        .setDescription('Tambah (+) atau Kurang (-)')
         .addChoices(
           { name: '+', value: '+' },
           { name: '-', value: '-' }
         )
         .setRequired(true))
+
     .addUserOption(o =>
-      o.setName('user').setRequired(true))
+      o.setName('user')
+        .setDescription('Target user')
+        .setRequired(true))
+
     .addIntegerOption(o =>
-      o.setName('robux').setRequired(true))
+      o.setName('robux')
+        .setDescription('Jumlah robux')
+        .setRequired(true))
+
     .addIntegerOption(o =>
-      o.setName('vouch').setRequired(true)),
+      o.setName('vouch')
+        .setDescription('Jumlah vouch')
+        .setRequired(true)),
 
   async execute(i) {
 
@@ -56,6 +68,6 @@ module.exports = {
 
     saveDB(db);
 
-    i.reply('✅ Updated');
+    return i.reply('✅ Updated');
   }
 };

@@ -3,8 +3,7 @@ const {
   GatewayIntentBits,
   SlashCommandBuilder,
   REST,
-  Routes,
-  EmbedBuilder
+  Routes
 } = require('discord.js');
 
 const token = process.env.TOKEN;
@@ -15,44 +14,35 @@ const client = new Client({
 });
 
 const TAX = 0.3;
-
 const format = n => n.toLocaleString('id-ID');
 
 
 
-/* =========================
-   COMMANDS
-========================= */
+/* ================= COMMANDS ================= */
 
-// ===== /tax =====
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
   .setDescription('Robux tax calculator')
   .addIntegerOption(o =>
-    o.setName('jumlah')
-      .setDescription('Jumlah Robux')
-      .setRequired(true)
-  )
+    o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
   .addStringOption(o =>
     o.setName('mode')
-      .setDescription('Mode perhitungan')
+      .setDescription('Mode')
       .addChoices(
         { name: 'After Tax', value: 'after' },
         { name: 'Before Tax', value: 'before' }
       )
-      .setRequired(true)
-  )
+      .setRequired(true))
   .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Harga per 1 Robux')
-      .setRequired(true)
-  );
+      .setDescription('Harga per robux')
+      .setRequired(true));
 
 
-// ===== /cek =====
+/* ✅ ubah deskripsi */
 const cekCommand = new SlashCommandBuilder()
   .setName('cek')
-  .setDescription('Cek place id dari username Roblox')
+  .setDescription('Mengambil place id player')
   .addStringOption(o =>
     o.setName('username')
       .setDescription('Username Roblox')
@@ -61,29 +51,20 @@ const cekCommand = new SlashCommandBuilder()
 
 
 
-/* =========================
-   REGISTER COMMANDS
-========================= */
+/* ================= REGISTER ================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    {
-      body: [
-        taxCommand.toJSON(),
-        cekCommand.toJSON()
-      ]
-    }
+    { body: [taxCommand.toJSON(), cekCommand.toJSON()] }
   );
 })();
 
 
 
-/* =========================
-   READY
-========================= */
+/* ================= READY ================= */
 
 client.once('ready', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
@@ -91,19 +72,14 @@ client.once('ready', () => {
 
 
 
-/* =========================
-   INTERACTIONS
-========================= */
+/* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
 
 
-  /* =================================
-     /tax
-  ================================= */
-
+  /* ===== TAX ===== */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -122,81 +98,68 @@ client.on('interactionCreate', async interaction => {
 
     const harga = gamepass * rate;
 
-    const embed = new EmbedBuilder()
-      .setColor(0x5865F2)
-      .setTitle('Robux Tax Calculator')
-      .setDescription(
-`Gamepass : ${format(gamepass)} Robux
+    return interaction.reply(
+`Robux Tax Calculator
+
+Gamepass : ${format(gamepass)} Robux
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
-──────────────
 Rate ${rate}`
-      );
-
-    return interaction.reply({ embeds: [embed] });
+    );
   }
 
 
 
-  /* =================================
-     /cek (PLACE ID ONLY)
-  ================================= */
-
+  /* ===== CEK USERNAME (PLACE ONLY) ===== */
   if (interaction.commandName === 'cek') {
 
-    const username = interaction.options.getString('username');
+    await interaction.deferReply();
 
     try {
+      const username = interaction.options.getString('username');
 
       // username -> userId
-      const userRes = await fetch(
-        'https://users.roblox.com/v1/usernames/users',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usernames: [username] })
-        }
-      );
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
       const userData = await userRes.json();
       const userId = userData.data?.[0]?.id;
 
       if (!userId)
-        return interaction.reply('User tidak ditemukan.');
+        return interaction.editReply('User tidak ditemukan.');
 
 
 
-      // creations -> ambil place id
+      // creations -> ambil place id (INI BIARIN, UDAH WORK)
       const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?limit=1`
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
       );
 
       const gameData = await gameRes.json();
 
-      const placeId =
-        gameData.data?.[0]?.rootPlace?.id || 'Tidak ditemukan';
+      const game = gameData.data?.find(g => g.rootPlace?.id);
+      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
 
 
-      const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
-        .setTitle('Roblox Info')
-        .setDescription(
-`Username : ${username}
+      return interaction.editReply(
+`Roblox Info
+
+Username : ${username}
 Place ID : ${placeId}`
-        );
-
-      return interaction.reply({ embeds: [embed] });
+      );
 
     } catch (err) {
-      console.log(err);
-      return interaction.reply('Gagal mengambil data Roblox.');
+      console.error(err);
+      interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
 
 });
-
 
 
 client.login(token);

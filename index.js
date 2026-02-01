@@ -3,7 +3,11 @@ const {
   GatewayIntentBits,
   SlashCommandBuilder,
   REST,
-  Routes
+  Routes,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
 } = require('discord.js');
 
 const token = process.env.TOKEN;
@@ -39,9 +43,8 @@ const taxCommand = new SlashCommandBuilder()
       .setRequired(true));
 
 
-/* ✅ ubah deskripsi */
-const cekCommand = new SlashCommandBuilder()
-  .setName('cek')
+const placeCommand = new SlashCommandBuilder()
+  .setName('placeid')
   .setDescription('Mengambil place id player')
   .addStringOption(o =>
     o.setName('username')
@@ -58,7 +61,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    { body: [taxCommand.toJSON(), cekCommand.toJSON()] }
+    { body: [taxCommand.toJSON(), placeCommand.toJSON()] }
   );
 })();
 
@@ -75,91 +78,139 @@ client.once('ready', () => {
 /* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
 
+  /* ================= SLASH ================= */
 
+  if (interaction.isChatInputCommand()) {
 
-  /* ===== TAX ===== */
-  if (interaction.commandName === 'tax') {
+    /* ===== TAX ===== */
+    if (interaction.commandName === 'tax') {
 
-    const jumlah = interaction.options.getInteger('jumlah');
-    const mode   = interaction.options.getString('mode');
-    const rate   = interaction.options.getInteger('rate');
+      const jumlah = interaction.options.getInteger('jumlah');
+      const mode   = interaction.options.getString('mode');
+      const rate   = interaction.options.getInteger('rate');
 
-    let gamepass, diterima;
+      let gamepass, diterima;
 
-    if (mode === 'before') {
-      gamepass = jumlah;
-      diterima = Math.floor(jumlah * (1 - TAX));
-    } else {
-      diterima = jumlah;
-      gamepass = Math.ceil(jumlah / (1 - TAX));
-    }
+      if (mode === 'before') {
+        gamepass = jumlah;
+        diterima = Math.floor(jumlah * (1 - TAX));
+      } else {
+        diterima = jumlah;
+        gamepass = Math.ceil(jumlah / (1 - TAX));
+      }
 
-    const harga = gamepass * rate;
+      const harga = gamepass * rate;
 
-    return interaction.reply(
-`Robux Tax Calculator
-
-Gamepass : ${format(gamepass)} Robux
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle('Robux Tax Calculator')
+        .setDescription(
+`Gamepass : ${format(gamepass)} Robux
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
+──────────────
 Rate ${rate}`
-    );
+        );
+
+      return interaction.reply({ embeds: [embed] });
+    }
+
+
+
+    /* ===== PLACEID ===== */
+    if (interaction.commandName === 'placeid') {
+
+      await interaction.deferReply();
+
+      const username = interaction.options.getString('username');
+
+      try {
+
+        // username -> userId
+        const userRes = await fetch(
+          'https://users.roblox.com/v1/usernames/users',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usernames: [username] })
+          }
+        );
+
+        const userData = await userRes.json();
+        const userId = userData.data?.[0]?.id;
+
+        if (!userId)
+          return interaction.editReply('User tidak ditemukan.');
+
+
+
+        // creations -> place id (yang sudah terbukti WORK)
+        const gameRes = await fetch(
+          `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
+        );
+
+        const gameData = await gameRes.json();
+
+        const game = gameData.data?.find(g => g.rootPlace?.id);
+        const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
+
+
+
+        /* ==== EMBED ==== */
+        const embed = new EmbedBuilder()
+          .setColor(0x5865F2)
+          .setTitle('Roblox Place Info')
+          .setDescription(
+`Username : ${username}
+Place ID : ${placeId}`
+          );
+
+
+
+        /* ==== BUTTON COPY ==== */
+        const button = new ButtonBuilder()
+          .setCustomId(`copy_${placeId}`)
+          .setLabel('Salin Place ID')
+          .setEmoji('📋')
+          .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder().addComponents(button);
+
+
+
+        return interaction.editReply({
+          embeds: [embed],
+          components: [row]
+        });
+
+      } catch (err) {
+        console.log(err);
+        return interaction.editReply('Gagal mengambil data Roblox.');
+      }
+    }
   }
 
 
 
-  /* ===== CEK USERNAME (PLACE ONLY) ===== */
-  if (interaction.commandName === 'cek') {
+  /* ================= BUTTON ================= */
 
-    await interaction.deferReply();
+  if (interaction.isButton()) {
 
-    try {
-      const username = interaction.options.getString('username');
+    if (interaction.customId.startsWith('copy_')) {
 
-      // username -> userId
-      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernames: [username] })
+      const placeId = interaction.customId.replace('copy_', '');
+
+      return interaction.reply({
+        content: placeId,
+        ephemeral: true
       });
-
-      const userData = await userRes.json();
-      const userId = userData.data?.[0]?.id;
-
-      if (!userId)
-        return interaction.editReply('User tidak ditemukan.');
-
-
-
-      // creations -> ambil place id (INI BIARIN, UDAH WORK)
-      const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
-      );
-
-      const gameData = await gameRes.json();
-
-      const game = gameData.data?.find(g => g.rootPlace?.id);
-      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
-
-
-
-      return interaction.editReply(
-`Roblox Info
-
-Username : ${username}
-Place ID : ${placeId}`
-      );
-
-    } catch (err) {
-      console.error(err);
-      interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
 
 });
+
 
 
 client.login(token);

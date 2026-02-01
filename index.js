@@ -1,51 +1,116 @@
-/* ================= AUTO VOUCH FINAL ================= */
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  REST,
+  Routes
+} = require('discord.js');
 
-const fs2 = require('fs');
+const fs = require('fs');
+
+const token = process.env.TOKEN;
+const clientId = process.env.CLIENT_ID;
+
+/* ================= CLIENT ================= */
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
+client.commands = new Collection();
+
+/* ================= LOAD COMMAND FILES ================= */
+
+const commands = [];
+const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
+
+for (const file of files) {
+  const cmd = require(`./commands/${file}`);
+
+  client.commands.set(cmd.data.name, cmd);
+  commands.push(cmd.data.toJSON());
+}
+
+/* ================= REGISTER SLASH ================= */
+
+const rest = new REST({ version: '10' }).setToken(token);
+
+(async () => {
+  await rest.put(Routes.applicationCommands(clientId), { body: commands });
+  console.log('✅ Slash registered');
+})();
+
+/* ================= READY ================= */
+
+client.once('clientReady', () => {
+  console.log(`✅ Bot online: ${client.user.tag}`);
+});
+
+/* ================= SLASH HANDLER ================= */
+
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const cmd = client.commands.get(interaction.commandName);
+  if (!cmd) return;
+
+  try {
+    await cmd.execute(interaction);
+  } catch (err) {
+    console.log(err);
+    interaction.reply({
+      content: '❌ Error',
+      ephemeral: true
+    });
+  }
+});
+
+/* ================= AUTO VOUCH ================= */
 
 const DB_FILE = './leaderboard.json';
-const TAX_RATE = 0.7; // 30% tax
+const TAX_RATE = 0.7;
 
 const vouchRegex =
 /(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
 
 function loadDB() {
-  if (!fs2.existsSync(DB_FILE)) return {};
-  return JSON.parse(fs2.readFileSync(DB_FILE));
+  if (!fs.existsSync(DB_FILE)) return {};
+  return JSON.parse(fs.readFileSync(DB_FILE));
 }
 
 function saveDB(db) {
-  fs2.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
+
+function parseAmount(text) {
+  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
+  if (!match) return null;
+
+  let val = match[1].toLowerCase();
+
+  if (val.includes('k')) return parseFloat(val) * 1000;
+  return parseFloat(val);
 }
 
 client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
-  const text = msg.content.toLowerCase();
+  const content = msg.content.toLowerCase();
 
-  /* harus ada kata vouch/typo */
-  if (!vouchRegex.test(text)) return;
+  if (!vouchRegex.test(content)) return;
 
-  /* ambil angka */
-  const match = text.match(/(\d+(?:k)?)/i);
-  if (!match) return;
+  let amount = parseAmount(content);
+  if (!amount) return;
 
-  let amount = match[1].toLowerCase();
-
-  /* support 1k */
-  if (amount.includes('k'))
-    amount = parseFloat(amount) * 1000;
-  else
-    amount = parseInt(amount);
-
-  if (!amount || amount < 1 || amount > 10000000) return;
-
-  /* ONLY after yang dihitung pajak */
-  if (/after|aftr|afer|fter/i.test(text)) {
+  /* after = user terima -> convert ke gamepass */
+  if (content.includes('after'))
     amount = Math.ceil(amount / TAX_RATE);
-  }
 
-  /* selain after (termasuk kosong/before) = normal */
-
+  /* before / angka doang -> langsung */
   const db = loadDB();
 
   if (!db[msg.author.id])
@@ -56,5 +121,9 @@ client.on('messageCreate', msg => {
 
   saveDB(db);
 
-  console.log(`AUTO VOUCH → ${msg.author.username} +${amount}`);
+  console.log(`AUTO VOUCH → ${msg.author.tag} | +${amount} robux`);
 });
+
+/* ================= LOGIN ================= */
+
+client.login(token);

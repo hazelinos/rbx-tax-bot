@@ -15,18 +15,19 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+// ===== CONFIG =====
 const TAX = 0.3;
+const DEFAULT_RATE = 70; // default rate per robux
 
 // format ribuan
 function format(num) {
-  return num.toLocaleString('en-US');
+  return Math.round(num).toLocaleString('en-US');
 }
-
 
 // ===== Slash Command =====
 const command = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Robux tax calculator')
+  .setDescription('Robux tax calculator (default rate 70)')
 
   .addIntegerOption(o =>
     o.setName('jumlah')
@@ -35,23 +36,23 @@ const command = new SlashCommandBuilder()
   )
 
   .addStringOption(o =>
-    o.setName('aftertax')
-      .setDescription('Hitung setelah tax?')
+    o.setName('mode')
+      .setDescription('Mode perhitungan')
       .addChoices(
-        { name: 'ya', value: 'yes' },
-        { name: 'tidak', value: 'no' }
+        { name: 'diterima', value: 'receive' },
+        { name: 'gamepass', value: 'gamepass' }
       )
       .setRequired(true)
   )
 
   .addNumberOption(o =>
     o.setName('rate')
-      .setDescription('Harga per 1 robux (opsional)')
+      .setDescription('Harga per 1 robux (opsional, default 70)')
       .setRequired(false)
   );
 
 
-// ===== Register =====
+// ===== Register Command =====
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
@@ -67,12 +68,15 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const jumlah = interaction.options.getInteger('jumlah');
-  const after = interaction.options.getString('aftertax');
-  const rate = interaction.options.getNumber('rate');
+  const mode = interaction.options.getString('mode');
+  const rateInput = interaction.options.getNumber('rate');
+
+  // pakai default kalau kosong
+  const rate = rateInput ?? DEFAULT_RATE;
 
   let gamepass, diterima;
 
-  if (after === 'yes') {
+  if (mode === 'receive') {
     gamepass = Math.ceil(jumlah / (1 - TAX));
     diterima = jumlah;
   } else {
@@ -80,22 +84,19 @@ client.on('interactionCreate', async interaction => {
     diterima = Math.floor(jumlah * (1 - TAX));
   }
 
-  // harga = gamepass × rate
-  let hargaText = '—';
-  if (rate) {
-    const harga = gamepass * rate;
-    hargaText = `Rp ${format(harga)}`;
-  }
+  const harga = gamepass * rate;
 
   const embed = new EmbedBuilder()
-    .setColor('#5865F2')
-    .setTitle('💸 RBX TAX CALCULATOR')
-    .addFields(
-      { name: '🎮 Gamepass', value: `${format(gamepass)} Robux`, inline: true },
-      { name: '📥 Diterima', value: `${format(diterima)} Robux`, inline: true },
-      { name: '💰 Harga', value: hargaText, inline: true }
-    )
-    .setFooter({ text: 'Tax Roblox 30%' });
+    .setColor('#5865F2') // biru discord
+    .setTitle('Robux Tax Calculator')
+    .setDescription(
+`Gamepass : ${format(gamepass)} Robux
+Diterima : ${format(diterima)} Robux
+Harga    : Rp ${format(harga)}
+
+──────────────
+Rate ${rate}/robux`
+    );
 
   await interaction.reply({ embeds: [embed] });
 });

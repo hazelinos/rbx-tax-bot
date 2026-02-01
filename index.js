@@ -56,71 +56,53 @@ function addData(id, robux, vouch = 1) {
 /* ================= WIB TIME ================= */
 
 function getSmartTime() {
-  const time = new Intl.DateTimeFormat('id-ID', {
+  return new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
     minute: '2-digit'
   }).format(new Date());
-
-  return `Today at ${time}`;
 }
 
-/* ================= COMMANDS (SAFE BUILDER) ================= */
+/* ================= COMMANDS ================= */
 
 const commands = [
 
-  /* TAX */
   new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Robux tax calculator')
-    .addIntegerOption(o =>
-      o.setName('jumlah')
-        .setDescription('jumlah robux')
-        .setRequired(true))
+    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
-        .setDescription('mode tax')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }
-        )
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('rate')
-        .setDescription('harga per robux')
-        .setRequired(true)),
+        ).setRequired(true))
+    .addIntegerOption(o => o.setName('rate').setRequired(true)),
 
-  /* PLACEID (ROBLOX API) */
   new SlashCommandBuilder()
     .setName('placeid')
-    .setDescription('Ambil place id player roblox')
+    .setDescription('Ambil place id player')
     .addStringOption(o =>
-      o.setName('username')
-        .setDescription('username roblox')
-        .setRequired(true)),
+      o.setName('username').setRequired(true)),
 
-  /* LEADERBOARD */
   new SlashCommandBuilder()
     .setName('leaderboard')
     .setDescription('Top Spend Robux & Vouch'),
 
-  /* ADMIN SET */
+  /* PLUS / MINUS ONLY */
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin edit leaderboard manual')
+    .setDescription('Tambah / kurang leaderboard')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-    .addUserOption(o =>
-      o.setName('user')
-        .setDescription('target user')
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('robux')
-        .setDescription('total robux')
-        .setRequired(true))
-    .addIntegerOption(o =>
-      o.setName('vouch')
-        .setDescription('total vouch')
-        .setRequired(true))
+    .addStringOption(o =>
+      o.setName('mode')
+        .addChoices(
+          { name: '+', value: '+' },
+          { name: '-', value: '-' }
+        ).setRequired(true))
+    .addUserOption(o => o.setName('user').setRequired(true))
+    .addIntegerOption(o => o.setName('robux').setRequired(true))
+    .addIntegerOption(o => o.setName('vouch').setRequired(true))
 
 ].map(c => c.toJSON());
 
@@ -129,10 +111,7 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  await rest.put(Routes.applicationCommands(clientId), {
-    body: commands
-  });
-  console.log('✅ Slash Commands Registered');
+  await rest.put(Routes.applicationCommands(clientId), { body: commands });
 })();
 
 /* ================= READY ================= */
@@ -147,19 +126,23 @@ const vouchRegex =
 /(vouch|vouc|voc|voch|v0uch|vuch|vouchh|vouhc|v0cuh)/i;
 
 function parseRobux(text) {
-  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
+  const match = text.match(/(\d+(?:[.,]\d+)?k?)/i);
   if (!match) return null;
 
-  let val = match[1].toLowerCase();
-  if (val.includes('k')) return parseFloat(val) * 1000;
-  return parseFloat(val);
+  let val = match[1]
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(',', '.');
+
+  return val.includes('k')
+    ? parseFloat(val) * 1000
+    : parseFloat(val);
 }
 
 client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
   const content = msg.content.toLowerCase();
-
   if (!vouchRegex.test(content)) return;
 
   const amount = parseRobux(content);
@@ -170,7 +153,16 @@ client.on('messageCreate', msg => {
   if (content.includes('after'))
     robux = Math.ceil(amount / (1 - TAX));
 
-  addData(msg.author.id, robux, 1);
+  const isRemove =
+    content.includes('hapus') ||
+    content.includes('remove') ||
+    content.includes('refund') ||
+    content.includes('-vouch');
+
+  if (isRemove)
+    addData(msg.author.id, -robux, -1);
+  else
+    addData(msg.author.id, robux, 1);
 });
 
 /* ================= LEADERBOARD ================= */
@@ -194,7 +186,7 @@ function buildEmbed(page = 0) {
 
   if (!desc) desc = 'Belum ada data';
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
@@ -202,8 +194,6 @@ function buildEmbed(page = 0) {
       text: `Nice Blox • Page ${page + 1}/${pages} | ${getSmartTime()}`,
       iconURL: FOOTER_ICON
     });
-
-  return { embed, pages };
 }
 
 /* ================= INTERACTIONS ================= */
@@ -237,17 +227,17 @@ client.on('interactionCreate', async i => {
           .setColor(EMBED_COLOR)
           .setTitle('Robux Tax Calculator')
           .setDescription(
-`Gamepass : ${format(gamepass)}
-Diterima : ${format(diterima)}
-Harga : Rp ${format(harga)}
+`Gamepass : ${format(gamepass)} Robux
+Diterima : ${format(diterima)} Robux
+Harga    : Rp ${format(harga)}
 
-Rate ${rate}`
+Rate ${format(rate)}`
           )
       ]
     });
   }
 
-  /* PLACEID (ROBLOX API WORKING) */
+  /* PLACEID */
   if (i.commandName === 'placeid') {
 
     await i.deferReply();
@@ -255,29 +245,21 @@ Rate ${rate}`
     try {
       const username = i.options.getString('username');
 
-      const userRes = await fetch(
-        'https://users.roblox.com/v1/usernames/users',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usernames: [username] })
-        }
-      );
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
       const userData = await userRes.json();
       const userId = userData.data?.[0]?.id;
 
-      if (!userId)
-        return i.editReply('User tidak ditemukan.');
-
       const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
+        `https://games.roblox.com/v2/users/${userId}/games?limit=50`
       );
 
       const gameData = await gameRes.json();
-
-      const game = gameData.data?.find(g => g.rootPlace?.id);
-      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
+      const placeId = gameData.data?.[0]?.rootPlace?.id ?? 'Tidak ditemukan';
 
       return i.editReply({
         embeds: [
@@ -298,15 +280,13 @@ Rate ${rate}`
 
     let page = 0;
 
-    const { embed, pages } = buildEmbed(page);
-
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary)
     );
 
     const msg = await i.reply({
-      embeds: [embed],
+      embeds: [buildEmbed(page)],
       components: [row],
       fetchReply: true
     });
@@ -314,31 +294,36 @@ Rate ${rate}`
     const collector = msg.createMessageComponentCollector({ time: 120000 });
 
     collector.on('collect', async btn => {
+      if (btn.user.id !== i.user.id) return;
 
-      if (btn.user.id !== i.user.id)
-        return btn.reply({ content: 'Bukan buat kamu 😆', ephemeral: true });
-
-      if (btn.customId === 'prev') page--;
-      if (btn.customId === 'next') page++;
-
+      page += btn.customId === 'next' ? 1 : -1;
       if (page < 0) page = 0;
-      if (page >= pages) page = pages - 1;
 
-      btn.update({ embeds: [buildEmbed(page).embed] });
+      btn.update({ embeds: [buildEmbed(page)] });
     });
   }
 
-  /* ADMIN SET */
+  /* ADMIN + / - */
   if (i.commandName === 'setleaderboard') {
 
+    const mode = i.options.getString('mode');
     const user = i.options.getUser('user');
     const robux = i.options.getInteger('robux');
     const vouch = i.options.getInteger('vouch');
 
-    db[user.id] = { robux, vouch };
+    if (!db[user.id]) db[user.id] = { robux: 0, vouch: 0 };
+
+    if (mode === '+') {
+      db[user.id].robux += robux;
+      db[user.id].vouch += vouch;
+    } else {
+      db[user.id].robux -= robux;
+      db[user.id].vouch -= vouch;
+    }
+
     saveDB();
 
-    return i.reply('✅ Updated');
+    return i.reply({ content: '✅ Updated', ephemeral: true });
   }
 
 });

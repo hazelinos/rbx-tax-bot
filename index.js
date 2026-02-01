@@ -54,6 +54,29 @@ function addData(id, robux, vouch = 1) {
   saveDB();
 }
 
+/* ================= SMART TIME ================= */
+
+function getSmartTime() {
+  const now = new Date();
+  const today = new Date(now.toDateString());
+
+  const time = now.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (now >= today) return `Today at ${time}`;
+  if (now >= yesterday) return `Yesterday at ${time}`;
+
+  return now.toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short'
+  }) + ` at ${time}`;
+}
+
 /* ================= COMMANDS ================= */
 
 const commands = [
@@ -62,9 +85,7 @@ const commands = [
     .setName('tax')
     .setDescription('Robux tax calculator')
     .addIntegerOption(o =>
-      o.setName('jumlah')
-        .setDescription('Jumlah robux')
-        .setRequired(true))
+      o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
         .setDescription('Before or After tax')
@@ -74,17 +95,13 @@ const commands = [
         )
         .setRequired(true))
     .addIntegerOption(o =>
-      o.setName('rate')
-        .setDescription('Harga per robux')
-        .setRequired(true)),
+      o.setName('rate').setDescription('Harga per robux').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('placeid')
     .setDescription('Ambil place id player')
     .addStringOption(o =>
-      o.setName('username')
-        .setDescription('Username roblox')
-        .setRequired(true)),
+      o.setName('username').setDescription('Username Roblox').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('leaderboard')
@@ -95,17 +112,11 @@ const commands = [
     .setDescription('Admin edit leaderboard')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addUserOption(o =>
-      o.setName('user')
-        .setDescription('Target user')
-        .setRequired(true))
+      o.setName('user').setDescription('Target user').setRequired(true))
     .addIntegerOption(o =>
-      o.setName('robux')
-        .setDescription('Total robux')
-        .setRequired(true))
+      o.setName('robux').setDescription('Total robux').setRequired(true))
     .addIntegerOption(o =>
-      o.setName('vouch')
-        .setDescription('Total vouch')
-        .setRequired(true))
+      o.setName('vouch').setDescription('Total vouch').setRequired(true))
 
 ].map(c => c.toJSON());
 
@@ -181,7 +192,7 @@ function buildEmbed(page = 0) {
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
     .setFooter({
-      text: `Nice Blox • Page ${page + 1} | Today`,
+      text: `Nice Blox • Page ${page + 1} | ${getSmartTime()}`,
       iconURL: FOOTER_ICON
     });
 }
@@ -223,44 +234,6 @@ Harga : Rp ${format(harga)}`
     return i.reply({ embeds: [embed] });
   }
 
-  /* PLACEID */
-  if (i.commandName === 'placeid') {
-
-    await i.deferReply();
-
-    const username = i.options.getString('username');
-
-    try {
-
-      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernames: [username] })
-      });
-
-      const userData = await userRes.json();
-      const userId = userData.data?.[0]?.id;
-
-      const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?limit=10`
-      );
-
-      const gameData = await gameRes.json();
-
-      const placeId = gameData.data?.[0]?.rootPlace?.id || 'Tidak ditemukan';
-
-      const embed = new EmbedBuilder()
-        .setColor(EMBED_COLOR)
-        .setTitle(`Place ID milik ${username}`)
-        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
-
-      return i.editReply({ embeds: [embed] });
-
-    } catch {
-      return i.editReply('Gagal ambil data');
-    }
-  }
-
   /* LEADERBOARD */
   if (i.commandName === 'leaderboard') {
 
@@ -291,20 +264,6 @@ Harga : Rp ${format(harga)}`
 
       btn.update({ embeds: [buildEmbed(page)] });
     });
-  }
-
-  /* ADMIN */
-  if (i.commandName === 'setleaderboard') {
-
-    const user = i.options.getUser('user');
-    db[user.id] = {
-      robux: i.options.getInteger('robux'),
-      vouch: i.options.getInteger('vouch')
-    };
-
-    saveDB();
-
-    return i.reply({ content: 'Updated', ephemeral: true });
   }
 
 });

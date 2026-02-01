@@ -20,7 +20,9 @@ const format = n => n.toLocaleString('id-ID');
 
 
 
-/* ================= CLIENT ================= */
+/* ================================================= */
+/* ================= CLIENT ========================= */
+/* ================================================= */
 /* AUTO VOUCH BUTUH intents ini */
 
 const client = new Client({
@@ -33,7 +35,9 @@ const client = new Client({
 
 
 
-/* ================= DATABASE ================= */
+/* ================================================= */
+/* ================= DATABASE ======================= */
+/* ================================================= */
 
 const DB_FILE = './leaderboard.json';
 
@@ -48,7 +52,9 @@ const saveDB = () =>
 
 
 
-/* ================= COMMANDS ================= */
+/* ================================================= */
+/* ================= COMMANDS ======================= */
+/* ================================================= */
 
 const commands = [
 
@@ -96,7 +102,7 @@ const commands = [
   /* ===== ADMIN MANUAL ===== */
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin only - tambah robux & vouch manual')
+    .setDescription('Admin only - tambah/kurangi robux & vouch manual')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addUserOption(o =>
       o.setName('user')
@@ -104,17 +110,19 @@ const commands = [
         .setRequired(true))
     .addIntegerOption(o =>
       o.setName('robux')
-        .setDescription('Tambah robux')
+        .setDescription('Tambah / kurang robux (pakai minus untuk kurangi)')
         .setRequired(true))
     .addIntegerOption(o =>
       o.setName('vouch')
-        .setDescription('Tambah vouch')
+        .setDescription('Tambah / kurang vouch (pakai minus untuk kurangi)')
         .setRequired(true))
 ];
 
 
 
-/* ================= REGISTER ================= */
+/* ================================================= */
+/* ================= REGISTER ======================= */
+/* ================================================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -127,7 +135,9 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 
 
-/* ================= READY ================= */
+/* ================================================= */
+/* ================= READY ========================== */
+/* ================================================= */
 
 client.once('ready', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
@@ -136,35 +146,58 @@ client.once('ready', () => {
 
 
 /* ================================================= */
-/* ================= AUTO VOUCH ===================== */
+/* ================= SMART PARSER =================== */
 /* ================================================= */
 
+/* ambil angka: 100 / 1k / 2.5k */
 function parseAmount(text) {
-  const match = text.match(/(\d+(?:\.\d+)?)(k)?/i);
+  const match = text.match(/(\d+(?:[.,]\d+)?)(k)?/i);
   if (!match) return 0;
 
-  let num = parseFloat(match[1]);
+  let num = parseFloat(match[1].replace(',', '.'));
   if (match[2]) num *= 1000;
 
   return Math.floor(num);
 }
+
+/* deteksi vouch super typo tolerant */
+function isVouch(text) {
+  return /(^|\s)v\w{0,4}/i.test(text);
+}
+
+/* before typo */
+function isBefore(text) {
+  return /(before|befor|bfr|bf)/i.test(text);
+}
+
+/* after typo */
+function isAfter(text) {
+  return /(after|aft|aftr|af)/i.test(text);
+}
+
+
+
+/* ================================================= */
+/* ================= AUTO VOUCH ===================== */
+/* ================================================= */
 
 client.on('messageCreate', message => {
   if (message.author.bot) return;
 
   const content = message.content.toLowerCase();
 
-  /* deteksi kata vouch */
-  if (!/(vouch|vocuh|vouc|voch|\+vouch)/.test(content)) return;
+  if (!isVouch(content)) return;
 
   const amount = parseAmount(content);
   if (!amount) return;
 
-  const isAfter = /after/.test(content);
+  let robux;
 
-  const robux = isAfter
-    ? Math.ceil(amount / (1 - TAX))
-    : amount;
+  if (isAfter(content)) {
+    robux = Math.ceil(amount / (1 - TAX));
+  } else {
+    robux = amount; // default before
+  }
 
   const id = message.author.id;
 
@@ -232,14 +265,14 @@ Rate ${rate}`);
     if (!sorted.length)
       return interaction.reply('Belum ada data.');
 
-    const lines = sorted.map(([id, d], i) =>
+    const text = sorted.map(([id, d], i) =>
       `${i+1}. <@${id}> • ${format(d.robux)} Robux • ${d.vouch} vouch`
-    );
+    ).join('\n');
 
     const embed = new EmbedBuilder()
       .setColor(EMBED_COLOR)
       .setTitle('Top Spend Robux & Vouch')
-      .setDescription(lines.join('\n'));
+      .setDescription(text);
 
     return interaction.reply({
       embeds: [embed],
@@ -249,7 +282,51 @@ Rate ${rate}`);
 
 
 
-  /* ===== ADMIN MANUAL ===== */
+  /* ===== PLACE ID ===== */
+  if (interaction.commandName === 'placeid') {
+
+    await interaction.deferReply();
+
+    try {
+      const username = interaction.options.getString('username');
+
+      const userRes = await fetch(
+        'https://users.roblox.com/v1/usernames/users',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernames: [username] })
+        }
+      );
+
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
+
+      if (!userId)
+        return interaction.editReply('User tidak ditemukan.');
+
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
+      );
+
+      const gameData = await gameRes.json();
+      const placeId = gameData.data?.[0]?.rootPlace?.id ?? 'Tidak ditemukan';
+
+      const embed = new EmbedBuilder()
+        .setColor(EMBED_COLOR)
+        .setTitle(`Place ID milik ${username} :`)
+        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
+
+      return interaction.editReply({ embeds: [embed] });
+
+    } catch {
+      return interaction.editReply('Gagal mengambil data.');
+    }
+  }
+
+
+
+  /* ===== ADMIN SET ===== */
   if (interaction.commandName === 'setleaderboard') {
 
     const user  = interaction.options.getUser('user');

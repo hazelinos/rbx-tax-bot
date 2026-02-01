@@ -7,7 +7,7 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-const fetch = require('node-fetch'); // ✅ anti crash
+/* ================= CONFIG ================= */
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -17,45 +17,37 @@ const client = new Client({
 });
 
 const TAX = 0.3;
-const BLUE = 0x1F6FEB;
-
 const format = n => n.toLocaleString('id-ID');
-
-
 
 /* ================= COMMANDS ================= */
 
-const commands = [
-
-  new SlashCommandBuilder()
-    .setName('tax')
-    .setDescription('Robux tax calculator')
-    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
-    .addStringOption(o =>
-      o.setName('mode')
-        .addChoices(
-          { name: 'After Tax', value: 'after' },
-          { name: 'Before Tax', value: 'before' }
-        )
-        .setRequired(true))
-    .addIntegerOption(o => o.setName('rate').setRequired(true)),
-
-
-
-  new SlashCommandBuilder()
-    .setName('placeid')
-    .setDescription('Mengambil place id player')
-    .addStringOption(o => o.setName('username').setRequired(true)),
+const taxCommand = new SlashCommandBuilder()
+  .setName('tax')
+  .setDescription('Calculate Robux tax, gamepass & price')
+  .addIntegerOption(o =>
+    o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
+  .addStringOption(o =>
+    o.setName('mode')
+      .setDescription('Mode')
+      .addChoices(
+        { name: 'After Tax', value: 'after' },
+        { name: 'Before Tax', value: 'before' }
+      )
+      .setRequired(true))
+  .addIntegerOption(o =>
+    o.setName('rate')
+      .setDescription('Harga per robux')
+      .setRequired(true));
 
 
-  new SlashCommandBuilder()
-    .setName('gamepass')
-    .setDescription('Mengambil semua gamepas player')
-    .addStringOption(o => o.setName('username').setRequired(true))
-
-];
-
-
+const placeCommand = new SlashCommandBuilder()
+  .setName('placeid')
+  .setDescription('Mengambil place id player')
+  .addStringOption(o =>
+    o.setName('username')
+      .setDescription('Username Roblox')
+      .setRequired(true)
+  );
 
 /* ================= REGISTER ================= */
 
@@ -64,11 +56,9 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    { body: commands.map(c => c.toJSON()) }
+    { body: [taxCommand.toJSON(), placeCommand.toJSON()] }
   );
 })();
-
-
 
 /* ================= READY ================= */
 
@@ -76,60 +66,12 @@ client.once('ready', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
-
-
-/* ================= HELPERS ================= */
-
-async function getUserId(username) {
-  const res = await fetch('https://users.roblox.com/v1/usernames/users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ usernames: [username] })
-  });
-
-  const data = await res.json();
-  return data.data?.[0]?.id;
-}
-
-
-async function getUserGames(userId) {
-  const res = await fetch(
-    `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
-  );
-  const data = await res.json();
-  return data.data || [];
-}
-
-
-async function getUniverseId(placeId) {
-  const res = await fetch(
-    `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeId}`
-  );
-  const data = await res.json();
-  return data[0]?.universeId;
-}
-
-
-async function getGamepasses(universeId) {
-  const res = await fetch(
-    `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
-  );
-  const data = await res.json();
-  return data.data || [];
-}
-
-
-
 /* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
-
   if (!interaction.isChatInputCommand()) return;
 
-
-
-  /* ===== TAX ===== */
-
+  /* ================= TAX ================= */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -140,99 +82,79 @@ client.on('interactionCreate', async interaction => {
 
     if (mode === 'before') {
       gamepass = jumlah;
-      diterima = Math.floor(jumlah * 0.7);
+      diterima = Math.floor(jumlah * (1 - TAX));
     } else {
       diterima = jumlah;
-      gamepass = Math.ceil(jumlah / 0.7);
+      gamepass = Math.ceil(jumlah / (1 - TAX));
     }
 
     const harga = gamepass * rate;
 
     const embed = new EmbedBuilder()
-      .setColor(BLUE)
+      .setColor(0x1f3cff) // biru tua
       .setTitle('Robux Tax Calculator')
       .setDescription(
 `Gamepass : ${format(gamepass)} Robux
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
+──────────────
 Rate ${rate}`
       );
 
     return interaction.reply({ embeds: [embed] });
   }
 
-
-
-  /* ===== PLACE ID ===== */
-
+  /* ================= PLACE ID ================= */
   if (interaction.commandName === 'placeid') {
 
     await interaction.deferReply();
 
-    const username = interaction.options.getString('username');
+    try {
+      const username = interaction.options.getString('username');
 
-    const userId = await getUserId(username);
-    if (!userId) return interaction.editReply('User tidak ditemukan.');
+      /* username -> userId */
+      const userRes = await fetch(
+        'https://users.roblox.com/v1/usernames/users',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernames: [username] })
+        }
+      );
 
-    const games = await getUserGames(userId);
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
 
-    const placeId = games.find(g => g.rootPlace?.id)?.rootPlace?.id;
+      if (!userId)
+        return interaction.editReply('User tidak ditemukan.');
 
-    const embed = new EmbedBuilder()
-      .setColor(BLUE)
-      .setTitle(`Place id milik ${username} :`)
-      .setDescription(`${placeId ?? 'Tidak ditemukan'}`);
+      /* user -> games */
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=10`
+      );
 
-    return interaction.editReply({ embeds: [embed] });
-  }
+      const gameData = await gameRes.json();
 
+      const game = gameData.data?.find(g => g.rootPlace?.id);
+      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
+      const embed = new EmbedBuilder()
+        .setColor(0x1f3cff)
+        .setTitle('Place ID Found')
+        .setDescription(
+`Place ID milik ${username}:
 
-  /* ===== GAMEPASS (FIXED UNIVERSE METHOD) ===== */
+${placeId}`
+        );
 
-  if (interaction.commandName === 'gamepass') {
+      return interaction.editReply({ embeds: [embed] });
 
-    await interaction.deferReply();
-
-    const username = interaction.options.getString('username');
-
-    const userId = await getUserId(username);
-    if (!userId) return interaction.editReply('User tidak ditemukan.');
-
-    const games = await getUserGames(userId);
-
-    let allPasses = [];
-
-    for (const g of games) {
-
-      const placeId = g.rootPlace?.id;
-      if (!placeId) continue;
-
-      const universeId = await getUniverseId(placeId);
-      if (!universeId) continue;
-
-      const passes = await getGamepasses(universeId);
-
-      allPasses.push(...passes);
+    } catch (err) {
+      console.error(err);
+      interaction.editReply('Gagal mengambil data Roblox.');
     }
-
-    if (!allPasses.length)
-      return interaction.editReply('Tidak ada gamepas');
-
-    const text = allPasses
-      .map(p => `${p.name} - ${format(p.price ?? 0)} Robux`)
-      .join('\n');
-
-    const embed = new EmbedBuilder()
-      .setColor(BLUE)
-      .setTitle(`Gamepas milik ${username}`)
-      .setDescription(text);
-
-    return interaction.editReply({ embeds: [embed] });
   }
-
 });
-
 
 client.login(token);

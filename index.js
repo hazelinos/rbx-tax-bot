@@ -132,7 +132,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 /* ================= READY ================= */
 
-client.once('ready', () => {
+client.once('clientReady', () => {
   console.log('✅ Bot Online');
 });
 

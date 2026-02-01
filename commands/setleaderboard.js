@@ -1,7 +1,14 @@
-const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  PermissionFlagsBits
+} = require('discord.js');
+
 const fs = require('fs');
 
 const DB_FILE = './leaderboard.json';
+const TAX_RATE = 0.7;
+
+/* ================= DB ================= */
 
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) return {};
@@ -12,62 +19,73 @@ function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
+/* ================= COMMAND ================= */
+
 module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin add/remove leaderboard')
+    .setDescription('Edit leaderboard (+/- robux & vouch)')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 
-    /* ⭐ WAJIB ADA DESCRIPTION SEMUA */
-    .addStringOption(o =>
-      o.setName('mode')
-        .setDescription('Tambah (+) atau Kurang (-)')
-        .addChoices(
-          { name: '+', value: '+' },
-          { name: '-', value: '-' }
-        )
-        .setRequired(true))
-
-    .addUserOption(o =>
-      o.setName('user')
-        .setDescription('Target user')
-        .setRequired(true))
-
+    /* 1️⃣ ROBUX (+/- langsung) */
     .addIntegerOption(o =>
       o.setName('robux')
-        .setDescription('Jumlah robux')
+        .setDescription('contoh: 500 / -200')
         .setRequired(true))
 
+    /* 2️⃣ VOUCH (+/- langsung) */
     .addIntegerOption(o =>
       o.setName('vouch')
-        .setDescription('Jumlah vouch')
+        .setDescription('contoh: 1 / -1')
+        .setRequired(true))
+
+    /* 3️⃣ AFTER TAX */
+    .addBooleanOption(o =>
+      o.setName('after')
+        .setDescription('pakai hitungan after tax? (ya/tidak)')
+        .setRequired(true))
+
+    /* 4️⃣ USER */
+    .addUserOption(o =>
+      o.setName('user')
+        .setDescription('target user')
         .setRequired(true)),
 
   async execute(i) {
 
-    const mode = i.options.getString('mode');
+    let robux = i.options.getInteger('robux');
+    let vouch = i.options.getInteger('vouch');
+    const after = i.options.getBoolean('after');
     const user = i.options.getUser('user');
-    const robux = i.options.getInteger('robux');
-    const vouch = i.options.getInteger('vouch');
 
     const db = loadDB();
 
-    if (!db[user.id]) db[user.id] = { robux: 0, vouch: 0 };
+    if (!db[user.id])
+      db[user.id] = { robux: 0, vouch: 0 };
 
-    if (mode === '+') {
-      db[user.id].robux += robux;
-      db[user.id].vouch += vouch;
-    } else {
-      db[user.id].robux -= robux;
-      db[user.id].vouch -= vouch;
+    /* AFTER TAX CONVERT */
+    if (after && robux > 0)
+      robux = Math.ceil(robux / TAX_RATE);
 
-      if (db[user.id].robux < 0) db[user.id].robux = 0;
-      if (db[user.id].vouch < 0) db[user.id].vouch = 0;
-    }
+    /* APPLY */
+    db[user.id].robux += robux;
+    db[user.id].vouch += vouch;
+
+    if (db[user.id].robux < 0) db[user.id].robux = 0;
+    if (db[user.id].vouch < 0) db[user.id].vouch = 0;
 
     saveDB(db);
 
-    return i.reply('✅ Updated');
+    await i.reply({
+      content:
+`✅ Updated
+
+User : <@${user.id}>
+Robux: ${robux}
+Vouch: ${vouch}
+After : ${after ? 'Yes' : 'No'}`,
+      ephemeral: true
+    });
   }
 };

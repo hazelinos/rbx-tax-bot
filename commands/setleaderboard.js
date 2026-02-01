@@ -25,7 +25,7 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Settinh Leaderboard')
+    .setDescription('Setting Leaderboard')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 
     /* 1️⃣ robux (+ / -) */

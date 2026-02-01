@@ -7,8 +7,6 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-const axios = require('axios');
-
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
@@ -16,54 +14,70 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+const TAX = 0.3;
+
+/* =========================
+   HELPER
+========================= */
+
 const format = n => n.toLocaleString('id-ID');
-
-
 
 /* =========================
    COMMANDS
 ========================= */
 
+/* ===== TAX ===== */
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Robux tax calculator')
+  .setDescription('Calculate Robux tax, gamepass & price')
+
   .addIntegerOption(o =>
     o.setName('jumlah')
-      .setDescription('Robux amount')
-      .setRequired(true))
+      .setDescription('Jumlah robux')
+      .setRequired(true)
+  )
+
   .addStringOption(o =>
     o.setName('mode')
-      .setDescription('Mode')
+      .setDescription('Mode perhitungan')
       .addChoices(
         { name: 'After Tax', value: 'after' },
         { name: 'Before Tax', value: 'before' }
       )
-      .setRequired(true))
+      .setRequired(true)
+  )
+
   .addIntegerOption(o =>
     o.setName('rate')
       .setDescription('Set custom price per Robux')
-      .setRequired(true));
+      .setRequired(true)
+  );
 
 
+/* ===== GAMEPASS ===== */
 const gamepassCommand = new SlashCommandBuilder()
   .setName('gamepass')
-  .setDescription('Show player gamepasses')
+  .setDescription('Menampilkan gamepass milik player')
   .addStringOption(o =>
     o.setName('username')
-      .setRequired(true));
+      .setDescription('Username Roblox player')
+      .setRequired(true)
+  );
 
 
+/* ===== PLACE ID ===== */
 const placeCommand = new SlashCommandBuilder()
   .setName('placeid')
-  .setDescription('Show player place id')
+  .setDescription('Menampilkan place id player')
   .addStringOption(o =>
     o.setName('username')
-      .setRequired(true));
-
+      .setDescription('Username Roblox player')
+      .setRequired(true)
+  );
 
 
 /* =========================
-   REGISTER
+   REGISTER COMMANDS
 ========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -82,7 +96,6 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 
-
 /* =========================
    READY
 ========================= */
@@ -92,22 +105,20 @@ client.once('ready', () => {
 });
 
 
-
 /* =========================
-   INTERACTIONS
+   INTERACTION HANDLER
 ========================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
 
-
-  /* ===== TAX ===== */
+  /* ================= TAX ================= */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
-    const mode = interaction.options.getString('mode');
-    const rate = interaction.options.getInteger('rate');
+    const mode   = interaction.options.getString('mode');
+    const rate   = interaction.options.getInteger('rate');
 
     let gamepass, diterima;
 
@@ -137,8 +148,7 @@ Rate ${rate}`
   }
 
 
-
-  /* ===== GAMEPASS ===== */
+  /* ================= GAMEPASS ================= */
   if (interaction.commandName === 'gamepass') {
 
     await interaction.deferReply();
@@ -146,37 +156,44 @@ Rate ${rate}`
     try {
       const username = interaction.options.getString('username');
 
-      const user = await axios.post(
-        'https://users.roblox.com/v1/usernames/users',
-        { usernames: [username] }
-      );
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
-      const userId = user.data.data[0]?.id;
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
 
       if (!userId)
         return interaction.editReply('User tidak ditemukan.');
 
-      const pass = await axios.get(
-        `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=50`
+      const passRes = await fetch(
+        `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=10`
       );
 
-      if (!pass.data.data.length)
-        return interaction.editReply('User tidak punya gamepass.');
+      const passData = await passRes.json();
 
-      const list = pass.data.data
+      if (!passData.data?.length)
+        return interaction.editReply('User tidak memiliki gamepass.');
+
+      const list = passData.data
         .map(p => `• ${p.name} — ${p.price ?? 0} Robux`)
         .join('\n');
 
-      interaction.editReply(`Gamepass milik **${username}**\n\n${list}`);
+      interaction.editReply(
+`Gamepass milik ${username}
+
+${list}`
+      );
 
     } catch {
-      interaction.editReply('Gagal ambil data.');
+      interaction.editReply('Gagal ambil data Roblox.');
     }
   }
 
 
-
-  /* ===== PLACEID ===== */
+  /* ================= PLACE ID ================= */
   if (interaction.commandName === 'placeid') {
 
     await interaction.deferReply();
@@ -184,21 +201,25 @@ Rate ${rate}`
     try {
       const username = interaction.options.getString('username');
 
-      const user = await axios.post(
-        'https://users.roblox.com/v1/usernames/users',
-        { usernames: [username] }
-      );
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
-      const userId = user.data.data[0]?.id;
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
 
       if (!userId)
         return interaction.editReply('User tidak ditemukan.');
 
-      const game = await axios.get(
+      const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=1`
       );
 
-      const placeId = game.data.data[0]?.rootPlace?.id ?? 'Tidak ditemukan';
+      const gameData = await gameRes.json();
+
+      const placeId = gameData.data?.[0]?.rootPlace?.id ?? 'Tidak ditemukan';
 
       interaction.editReply(
 `Username : ${username}
@@ -207,12 +228,11 @@ Place ID : ${placeId}`
       );
 
     } catch {
-      interaction.editReply('Gagal ambil data.');
+      interaction.editReply('Gagal ambil data Roblox.');
     }
   }
 
 });
-
 
 
 client.login(token);

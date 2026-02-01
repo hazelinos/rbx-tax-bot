@@ -24,6 +24,7 @@ const format = n => n.toLocaleString('id-ID');
    COMMANDS
 ========================= */
 
+// ===== /tax =====
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
   .setDescription('Robux tax calculator')
@@ -43,14 +44,15 @@ const taxCommand = new SlashCommandBuilder()
   )
   .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Custom price per Robux')
+      .setDescription('Harga per 1 Robux')
       .setRequired(true)
   );
 
 
+// ===== /cek =====
 const cekCommand = new SlashCommandBuilder()
   .setName('cek')
-  .setDescription('Cek place id & gamepass dari username Roblox')
+  .setDescription('Cek place id dari username Roblox')
   .addStringOption(o =>
     o.setName('username')
       .setDescription('Username Roblox')
@@ -60,7 +62,7 @@ const cekCommand = new SlashCommandBuilder()
 
 
 /* =========================
-   REGISTER
+   REGISTER COMMANDS
 ========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -84,7 +86,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 ========================= */
 
 client.once('ready', () => {
-  console.log(`✅ Online: ${client.user.tag}`);
+  console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
 
@@ -99,7 +101,7 @@ client.on('interactionCreate', async interaction => {
 
 
   /* =================================
-     TAX COMMAND
+     /tax
   ================================= */
 
   if (interaction.commandName === 'tax') {
@@ -112,10 +114,10 @@ client.on('interactionCreate', async interaction => {
 
     if (mode === 'before') {
       gamepass = jumlah;
-      diterima = Math.floor(jumlah * 0.7);
+      diterima = Math.floor(jumlah * (1 - TAX));
     } else {
       diterima = jumlah;
-      gamepass = Math.ceil(jumlah / 0.7);
+      gamepass = Math.ceil(jumlah / (1 - TAX));
     }
 
     const harga = gamepass * rate;
@@ -138,7 +140,7 @@ Rate ${rate}`
 
 
   /* =================================
-     CEK USER (PLACE + GAMEPASS)
+     /cek (PLACE ID ONLY)
   ================================= */
 
   if (interaction.commandName === 'cek') {
@@ -147,7 +149,7 @@ Rate ${rate}`
 
     try {
 
-      /* STEP 1 — username -> userId */
+      // username -> userId
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -165,7 +167,7 @@ Rate ${rate}`
 
 
 
-      /* STEP 2 — creations (ambil place + universe) */
+      // creations -> ambil place id
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=1`
       );
@@ -175,28 +177,6 @@ Rate ${rate}`
       const placeId =
         gameData.data?.[0]?.rootPlace?.id || 'Tidak ditemukan';
 
-      const universeId =
-        gameData.data?.[0]?.id;
-
-
-
-      /* STEP 3 — GAMEPASS DARI UNIVERSE (FIX FINAL) */
-      let passText = 'Tidak ada gamepass';
-
-      if (universeId) {
-        const passRes = await fetch(
-          `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=50`
-        );
-
-        const passData = await passRes.json();
-
-        if (passData.data?.length) {
-          passText = passData.data
-            .map(p => `• ${p.name} — ${format(p.price || 0)} Robux`)
-            .join('\n');
-        }
-      }
-
 
 
       const embed = new EmbedBuilder()
@@ -204,10 +184,7 @@ Rate ${rate}`
         .setTitle('Roblox Info')
         .setDescription(
 `Username : ${username}
-Place ID : ${placeId}
-
-Gamepass :
-${passText}`
+Place ID : ${placeId}`
         );
 
       return interaction.reply({ embeds: [embed] });

@@ -1,4 +1,6 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, Routes, REST } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder } = require('discord.js');
+const { REST } = require('@discordjs/rest');
+const { Routes } = require('discord-api-types/v10');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -17,7 +19,7 @@ const command = new SlashCommandBuilder()
   )
   .addStringOption(o =>
     o.setName('mode')
-      .setDescription('before / after')
+      .setDescription('Mode perhitungan')
       .addChoices(
         { name: 'before', value: 'before' },
         { name: 'after', value: 'after' }
@@ -30,9 +32,13 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    { body: [command] }
+    { body: [command.toJSON()] }
   );
 })();
+
+client.once('ready', () => {
+  console.log(`✅ Bot online: ${client.user.tag}`);
+});
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;

@@ -13,22 +13,16 @@ const fs = require('fs');
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
-
-
-
-/* ================= CONFIG ================= */
-
 const TAX = 0.3;
 const EMBED_COLOR = 0x1F6FEB;
+
 const format = n => n.toLocaleString('id-ID');
 
+/* ================= CLIENT ================= */
+
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds] // ❗ leaderboard TIDAK butuh message intent
+});
 
 
 /* ================= DATABASE ================= */
@@ -45,52 +39,69 @@ const saveDB = () =>
   fs.writeFileSync(DB_FILE, JSON.stringify(leaderboardData, null, 2));
 
 
-
 /* ================= COMMANDS ================= */
 
-const taxCommand = new SlashCommandBuilder()
-  .setName('tax')
-  .setDescription('Robux tax calculator')
-  .addIntegerOption(o =>
-    o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
-  .addStringOption(o =>
-    o.setName('mode')
-      .addChoices(
-        { name: 'After Tax', value: 'after' },
-        { name: 'Before Tax', value: 'before' }
-      )
-      .setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('rate')
-      .setDescription('Harga per robux')
-      .setRequired(true));
+const commands = [
+
+  /* ===== TAX ===== */
+  new SlashCommandBuilder()
+    .setName('tax')
+    .setDescription('Robux tax calculator')
+    .addIntegerOption(o =>
+      o.setName('jumlah')
+        .setDescription('Jumlah robux')
+        .setRequired(true))
+    .addStringOption(o =>
+      o.setName('mode')
+        .setDescription('Mode tax')
+        .addChoices(
+          { name: 'After Tax', value: 'after' },
+          { name: 'Before Tax', value: 'before' }
+        )
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('rate')
+        .setDescription('Harga per robux')
+        .setRequired(true)),
 
 
 
-const placeCommand = new SlashCommandBuilder()
-  .setName('placeid')
-  .setDescription('Mengambil place id player')
-  .addStringOption(o =>
-    o.setName('username').setRequired(true));
+  /* ===== PLACE ID ===== */
+  new SlashCommandBuilder()
+    .setName('placeid')
+    .setDescription('Mengambil place id player')
+    .addStringOption(o =>
+      o.setName('username')
+        .setDescription('Username Roblox')
+        .setRequired(true)),
 
 
 
-const leaderboardCommand = new SlashCommandBuilder()
-  .setName('leaderboard')
-  .setDescription('Lihat leaderboard robux');
+  /* ===== LEADERBOARD ===== */
+  new SlashCommandBuilder()
+    .setName('leaderboard')
+    .setDescription('Menampilkan leaderboard spend robux'),
 
 
 
-const setCommand = new SlashCommandBuilder()
-  .setName('setleaderboard')
-  .setDescription('Admin only - tambah robux & vouch manual')
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-  .addUserOption(o =>
-    o.setName('user').setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('robux').setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('vouch').setRequired(true));
+  /* ===== ADMIN SET ===== */
+  new SlashCommandBuilder()
+    .setName('setleaderboard')
+    .setDescription('Admin only - tambah data leaderboard manual')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addUserOption(o =>
+      o.setName('user')
+        .setDescription('User target')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('robux')
+        .setDescription('Jumlah robux')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('vouch')
+        .setDescription('Jumlah vouch')
+        .setRequired(true))
+];
 
 
 
@@ -101,14 +112,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    {
-      body: [
-        taxCommand.toJSON(),
-        placeCommand.toJSON(),
-        leaderboardCommand.toJSON(),
-        setCommand.toJSON()
-      ]
-    }
+    { body: commands.map(c => c.toJSON()) }
   );
 })();
 
@@ -122,68 +126,31 @@ client.once('ready', () => {
 
 
 
-/* ================= AUTO VOUCH PARSER ================= */
-
-function parseRobux(text) {
-  const match = text.match(/(\d+(?:\.\d+)?)(k)?/i);
-  if (!match) return 0;
-
-  let num = parseFloat(match[1]);
-  if (match[2]) num *= 1000;
-
-  return Math.floor(num);
-}
-
-client.on('messageCreate', message => {
-  if (message.author.bot) return;
-
-  const msg = message.content.toLowerCase();
-
-  if (!/(vouch|vocuh|vouc|voch|\+vouch)/.test(msg)) return;
-
-  const amount = parseRobux(msg);
-  if (!amount) return;
-
-  const isAfter = /after/.test(msg);
-  const finalRobux = isAfter
-    ? Math.ceil(amount / (1 - TAX))
-    : amount;
-
-  const id = message.author.id;
-
-  if (!leaderboardData[id])
-    leaderboardData[id] = { robux: 0, vouch: 0 };
-
-  leaderboardData[id].robux += finalRobux;
-  leaderboardData[id].vouch += 1;
-
-  saveDB();
-});
-
-
-
-/* ================= INTERACTIONS ================= */
+/* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
 
 
-  /* ===== TAX ===== */
+  /* ================================================= */
+  /* ===================== TAX ======================= */
+  /* ================================================= */
+
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
-    const mode   = interaction.options.getString('mode');
-    const rate   = interaction.options.getInteger('rate');
+    const mode = interaction.options.getString('mode');
+    const rate = interaction.options.getInteger('rate');
 
     let gamepass, diterima;
 
     if (mode === 'before') {
       gamepass = jumlah;
-      diterima = Math.floor(jumlah * 0.7);
+      diterima = Math.floor(jumlah * (1 - TAX));
     } else {
       diterima = jumlah;
-      gamepass = Math.ceil(jumlah / 0.7);
+      gamepass = Math.ceil(jumlah / (1 - TAX));
     }
 
     const harga = gamepass * rate;
@@ -196,14 +163,19 @@ client.on('interactionCreate', async interaction => {
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
-Rate ${rate}`);
+──────────────
+Rate ${rate}`
+      );
 
     return interaction.reply({ embeds: [embed] });
   }
 
 
 
-  /* ===== PLACEID ===== */
+  /* ================================================= */
+  /* ==================== PLACE ID =================== */
+  /* ================================================= */
+
   if (interaction.commandName === 'placeid') {
 
     await interaction.deferReply();
@@ -231,7 +203,8 @@ Rate ${rate}`);
       );
 
       const gameData = await gameRes.json();
-      const placeId = gameData.data?.[0]?.rootPlace?.id ?? 'Tidak ditemukan';
+      const game = gameData.data?.find(g => g.rootPlace?.id);
+      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
       const embed = new EmbedBuilder()
         .setColor(EMBED_COLOR)
@@ -247,7 +220,10 @@ Rate ${rate}`);
 
 
 
-  /* ===== LEADERBOARD ===== */
+  /* ================================================= */
+  /* ================= LEADERBOARD =================== */
+  /* ================================================= */
+
   if (interaction.commandName === 'leaderboard') {
 
     const sorted = Object.entries(leaderboardData)
@@ -258,7 +234,7 @@ Rate ${rate}`);
       return interaction.reply('Belum ada data.');
 
     const text = sorted.map((u, i) =>
-      `${i+1}. <@${u[0]}> • ${format(u[1].robux)} Robux • ${u[1].vouch} vouch`
+      `${i + 1}. <@${u[0]}> • ${format(u[1].robux)} Robux • ${u[1].vouch} vouch`
     ).join('\n');
 
     const embed = new EmbedBuilder()
@@ -271,36 +247,25 @@ Rate ${rate}`);
 
 
 
-  /* ===== ADMIN SET ===== */
+  /* ================================================= */
+  /* ================= ADMIN SET ===================== */
+  /* ================================================= */
+
   if (interaction.commandName === 'setleaderboard') {
 
-    const user  = interaction.options.getUser('user');
+    const user = interaction.options.getUser('user');
     const robux = interaction.options.getInteger('robux');
     const vouch = interaction.options.getInteger('vouch');
 
-    const id = user.id;
+    if (!leaderboardData[user.id])
+      leaderboardData[user.id] = { robux: 0, vouch: 0 };
 
-    if (!leaderboardData[id])
-      leaderboardData[id] = { robux: 0, vouch: 0 };
-
-    leaderboardData[id].robux += robux;
-    leaderboardData[id].vouch += vouch;
+    leaderboardData[user.id].robux += robux;
+    leaderboardData[user.id].vouch += vouch;
 
     saveDB();
 
-    const embed = new EmbedBuilder()
-      .setColor(EMBED_COLOR)
-      .setTitle('Leaderboard Updated')
-      .setDescription(
-`User   : <@${id}>
-Robux  : +${format(robux)}
-Vouch  : +${vouch}
-
-Total sekarang
-Robux  : ${format(leaderboardData[id].robux)}
-Vouch  : ${leaderboardData[id].vouch}`);
-
-    return interaction.reply({ embeds: [embed] });
+    return interaction.reply(`✅ Ditambahkan ke ${user.username}`);
   }
 
 });

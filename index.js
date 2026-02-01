@@ -6,6 +6,8 @@ const {
   Routes
 } = require('discord.js');
 
+global.fetch = fetch;
+
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
@@ -33,7 +35,7 @@ const taxCommand = new SlashCommandBuilder()
   )
   .addStringOption(o =>
     o.setName('mode')
-      .setDescription('Mode hitung')
+      .setDescription('Mode perhitungan')
       .addChoices(
         { name: 'After Tax', value: 'after' },
         { name: 'Before Tax', value: 'before' }
@@ -47,10 +49,9 @@ const taxCommand = new SlashCommandBuilder()
   );
 
 
-
 const cekCommand = new SlashCommandBuilder()
   .setName('cek')
-  .setDescription('Cek place id & gamepass dari username')
+  .setDescription('Cek place id & gamepass player')
   .addStringOption(o =>
     o.setName('username')
       .setDescription('Username Roblox')
@@ -60,7 +61,7 @@ const cekCommand = new SlashCommandBuilder()
 
 
 /* =========================
-   REGISTER
+   REGISTER COMMANDS
 ========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -85,7 +86,7 @@ client.once('ready', () => {
 
 
 /* =========================
-   INTERACTION
+   INTERACTIONS
 ========================= */
 
 client.on('interactionCreate', async interaction => {
@@ -93,44 +94,40 @@ client.on('interactionCreate', async interaction => {
 
 
 
-  /* =========================
-     TAX
-  ========================= */
+  /* ================= TAX ================= */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
-    const mode   = interaction.options.getString('mode');
-    const rate   = interaction.options.getInteger('rate');
+    const mode = interaction.options.getString('mode');
+    const rate = interaction.options.getInteger('rate');
 
     let gamepass, diterima;
 
     if (mode === 'before') {
       gamepass = jumlah;
-      diterima = Math.floor(jumlah * (1 - TAX));
+      diterima = Math.floor(jumlah * 0.7);
     } else {
       diterima = jumlah;
-      gamepass = Math.ceil(jumlah / (1 - TAX));
+      gamepass = Math.ceil(jumlah / 0.7);
     }
 
     const harga = gamepass * rate;
 
-    return interaction.reply(
+    await interaction.reply(
 `Robux Tax Calculator
 
 Gamepass : ${format(gamepass)} Robux
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
+──────────────
 Rate ${rate}`
     );
   }
 
 
 
-  /* =========================
-     CEK USERNAME
-     (UNIVERSE METHOD - STABLE)
-  ========================= */
+  /* ================= CEK ================= */
   if (interaction.commandName === 'cek') {
 
     await interaction.deferReply();
@@ -138,15 +135,12 @@ Rate ${rate}`
     try {
       const username = interaction.options.getString('username');
 
-      /* 1️⃣ username -> userId */
-      const userRes = await fetch(
-        'https://users.roblox.com/v1/usernames/users',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usernames: [username] })
-        }
-      );
+      /* USER → USERID */
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
       const userData = await userRes.json();
       const userId = userData.data?.[0]?.id;
@@ -156,41 +150,38 @@ Rate ${rate}`
 
 
 
-      /* 2️⃣ userId -> universe -> placeId */
-      const uniRes = await fetch(
-        `https://develop.roblox.com/v1/users/${userId}/universes`
+      /* USERID → PLACE ID (FIX ENDPOINT) */
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=1`
       );
 
-      const uniData = await uniRes.json();
-      const placeId = uniData.data?.[0]?.rootPlaceId;
+      const gameData = await gameRes.json();
+      const placeId = gameData.data?.[0]?.rootPlace?.id || 'Tidak ditemukan';
 
 
 
-      /* 3️⃣ placeId -> gamepass */
+      /* USERID → GAMEPASS */
+      const passRes = await fetch(
+        `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=50`
+      );
+
+      const passData = await passRes.json();
+
       let gamepassText = 'Tidak ada gamepass';
 
-      if (placeId) {
-        const passRes = await fetch(
-          `https://games.roblox.com/v1/games/${placeId}/game-passes?limit=50`
-        );
-
-        const passData = await passRes.json();
-
-        if (passData.data?.length) {
-          gamepassText = passData.data
-            .map(p => `- ${p.name} (${format(p.price ?? 0)} Robux)`)
-            .join('\n');
-        }
+      if (passData.data && passData.data.length) {
+        gamepassText = passData.data
+          .map(p => `${p.name} (${p.price ?? 0} Robux)`)
+          .join('\n');
       }
 
 
 
-      /* 4️⃣ TEXT OUTPUT (copy friendly) */
-      return interaction.editReply(
+      await interaction.editReply(
 `Roblox Info
 
 Username : ${username}
-Place ID : ${placeId ?? 'Tidak ditemukan'}
+Place ID : ${placeId}
 
 Gamepass :
 ${gamepassText}`
@@ -198,9 +189,10 @@ ${gamepassText}`
 
     } catch (err) {
       console.error(err);
-      return interaction.editReply('Gagal mengambil data Roblox.');
+      interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
+
 });
 
 

@@ -28,9 +28,12 @@ const taxCommand = new SlashCommandBuilder()
   .setName('tax')
   .setDescription('Robux tax calculator')
   .addIntegerOption(o =>
-    o.setName('jumlah').setDescription('Robux amount').setRequired(true))
+    o.setName('jumlah')
+      .setDescription('Robux amount')
+      .setRequired(true))
   .addStringOption(o =>
     o.setName('mode')
+      .setDescription('Mode')
       .addChoices(
         { name: 'After Tax', value: 'after' },
         { name: 'Before Tax', value: 'before' }
@@ -41,17 +44,21 @@ const taxCommand = new SlashCommandBuilder()
       .setDescription('Set custom price per Robux')
       .setRequired(true));
 
+
 const gamepassCommand = new SlashCommandBuilder()
   .setName('gamepass')
   .setDescription('Show player gamepasses')
   .addStringOption(o =>
-    o.setName('username').setRequired(true));
+    o.setName('username')
+      .setRequired(true));
+
 
 const placeCommand = new SlashCommandBuilder()
   .setName('placeid')
   .setDescription('Show player place id')
   .addStringOption(o =>
-    o.setName('username').setRequired(true));
+    o.setName('username')
+      .setRequired(true));
 
 
 
@@ -64,11 +71,21 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    { body: [taxCommand, gamepassCommand, placeCommand] }
+    {
+      body: [
+        taxCommand.toJSON(),
+        gamepassCommand.toJSON(),
+        placeCommand.toJSON()
+      ]
+    }
   );
 })();
 
 
+
+/* =========================
+   READY
+========================= */
 
 client.once('ready', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
@@ -77,7 +94,7 @@ client.once('ready', () => {
 
 
 /* =========================
-   INTERACTION
+   INTERACTIONS
 ========================= */
 
 client.on('interactionCreate', async interaction => {
@@ -159,7 +176,7 @@ Rate ${rate}`
 
 
 
-  /* ===== PLACE ID ===== */
+  /* ===== PLACEID ===== */
   if (interaction.commandName === 'placeid') {
 
     await interaction.deferReply();

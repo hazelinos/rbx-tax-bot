@@ -56,17 +56,20 @@ function addData(id, robux, vouch = 1) {
 /* ================= WIB TIME ================= */
 
 function getSmartTime() {
-  return new Intl.DateTimeFormat('id-ID', {
+  const time = new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
     minute: '2-digit'
   }).format(new Date());
+
+  return `Today at ${time}`;
 }
 
-/* ================= COMMANDS ================= */
+/* ================= COMMANDS (SAFE BUILDER) ================= */
 
 const commands = [
 
+  /* TAX */
   new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Robux tax calculator')
@@ -87,6 +90,7 @@ const commands = [
         .setDescription('harga per robux')
         .setRequired(true)),
 
+  /* PLACEID (ROBLOX API) */
   new SlashCommandBuilder()
     .setName('placeid')
     .setDescription('Ambil place id player roblox')
@@ -95,10 +99,12 @@ const commands = [
         .setDescription('username roblox')
         .setRequired(true)),
 
+  /* LEADERBOARD */
   new SlashCommandBuilder()
     .setName('leaderboard')
     .setDescription('Top Spend Robux & Vouch'),
 
+  /* ADMIN SET */
   new SlashCommandBuilder()
     .setName('setleaderboard')
     .setDescription('Admin edit leaderboard manual')
@@ -144,10 +150,9 @@ function parseRobux(text) {
   const match = text.match(/(\d+(?:\.\d+)?k?)/i);
   if (!match) return null;
 
-  const val = match[1].toLowerCase();
-  return val.includes('k')
-    ? parseFloat(val) * 1000
-    : parseFloat(val);
+  let val = match[1].toLowerCase();
+  if (val.includes('k')) return parseFloat(val) * 1000;
+  return parseFloat(val);
 }
 
 client.on('messageCreate', msg => {
@@ -189,7 +194,7 @@ function buildEmbed(page = 0) {
 
   if (!desc) desc = 'Belum ada data';
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
@@ -197,6 +202,8 @@ function buildEmbed(page = 0) {
       text: `Nice Blox • Page ${page + 1}/${pages} | ${getSmartTime()}`,
       iconURL: FOOTER_ICON
     });
+
+  return { embed, pages };
 }
 
 /* ================= INTERACTIONS ================= */
@@ -205,7 +212,7 @@ client.on('interactionCreate', async i => {
 
   if (!i.isChatInputCommand()) return;
 
-  /* ===== TAX ===== */
+  /* TAX */
   if (i.commandName === 'tax') {
 
     const jumlah = i.options.getInteger('jumlah');
@@ -230,17 +237,17 @@ client.on('interactionCreate', async i => {
           .setColor(EMBED_COLOR)
           .setTitle('Robux Tax Calculator')
           .setDescription(
-`Gamepass : ${format(gamepass)} Robux
-Diterima : ${format(diterima)} Robux
-Harga    : Rp ${format(harga)}
+`Gamepass : ${format(gamepass)}
+Diterima : ${format(diterima)}
+Harga : Rp ${format(harga)}
 
-Rate ${format(rate)}`
+Rate ${rate}`
           )
       ]
     });
   }
 
-  /* ===== PLACEID ===== */
+  /* PLACEID (ROBLOX API WORKING) */
   if (i.commandName === 'placeid') {
 
     await i.deferReply();
@@ -264,7 +271,7 @@ Rate ${format(rate)}`
         return i.editReply('User tidak ditemukan.');
 
       const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?limit=50`
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
       );
 
       const gameData = await gameRes.json();
@@ -284,6 +291,54 @@ Rate ${format(rate)}`
     } catch {
       return i.editReply('Gagal mengambil data Roblox.');
     }
+  }
+
+  /* LEADERBOARD */
+  if (i.commandName === 'leaderboard') {
+
+    let page = 0;
+
+    const { embed, pages } = buildEmbed(page);
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary)
+    );
+
+    const msg = await i.reply({
+      embeds: [embed],
+      components: [row],
+      fetchReply: true
+    });
+
+    const collector = msg.createMessageComponentCollector({ time: 120000 });
+
+    collector.on('collect', async btn => {
+
+      if (btn.user.id !== i.user.id)
+        return btn.reply({ content: 'Bukan buat kamu 😆', ephemeral: true });
+
+      if (btn.customId === 'prev') page--;
+      if (btn.customId === 'next') page++;
+
+      if (page < 0) page = 0;
+      if (page >= pages) page = pages - 1;
+
+      btn.update({ embeds: [buildEmbed(page).embed] });
+    });
+  }
+
+  /* ADMIN SET */
+  if (i.commandName === 'setleaderboard') {
+
+    const user = i.options.getUser('user');
+    const robux = i.options.getInteger('robux');
+    const vouch = i.options.getInteger('vouch');
+
+    db[user.id] = { robux, vouch };
+    saveDB();
+
+    return i.reply('✅ Updated');
   }
 
 });

@@ -5,16 +5,8 @@ const {
 
 const fs = require('fs');
 
-/* ================= CONFIG ================= */
-
-// ⭐ GANTI INI DENGAN CHANNEL VOUCH LU
-const VOUCH_CHANNEL_ID = '1448898315411259424';
-
 const DB_FILE = './leaderboard.json';
-
-const TAX = 0.3;
-
-/* ================= DB ================= */
+const VOUCH_CHANNEL_ID = 'ISI_CHANNEL_ID_DISINI'; // ganti
 
 function loadDB() {
   if (!fs.existsSync(DB_FILE)) return {};
@@ -25,33 +17,25 @@ function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-/* ================= REGEX (typo banyak) ================= */
-
-const vouchRegex =
-/(vouch|vouc|voc|voch|v0uch|vuch|vouchh|vouhc|v0cuh|\+vouch|\+voc|\+v)/i;
-
+/* 🔥 FIX PARSER */
 function parseRobux(text) {
-  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
+  const match = text.toLowerCase()
+    .match(/(\d+(?:[.,]\d+)?)\s*(robux|rbx|r\$|r)/i);
+
   if (!match) return null;
 
-  let val = match[1].toLowerCase();
-
-  if (val.includes('k')) return parseFloat(val) * 1000;
-
-  return parseFloat(val);
+  return Number(match[1].replace(/[.,]/g, ''));
 }
-
-/* ================= COMMAND ================= */
 
 module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('vouchmsg')
-    .setDescription('Ambil vouch dari message ID (admin only)')
+    .setDescription('Tambah vouch dari message id')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(o =>
       o.setName('id')
-        .setDescription('Message ID')
+        .setDescription('message id')
         .setRequired(true)
     ),
 
@@ -59,35 +43,16 @@ module.exports = {
 
     await i.deferReply({ ephemeral: true });
 
+    const id = i.options.getString('id');
+
     try {
-
-      const messageId = i.options.getString('id');
-
-      /* ⭐ AUTO CHANNEL FETCH */
       const channel = await i.client.channels.fetch(VOUCH_CHANNEL_ID);
+      const msg = await channel.messages.fetch(id);
 
-      if (!channel)
-        return i.editReply('❌ Channel vouch tidak ditemukan');
+      const robux = parseRobux(msg.content);
 
-      const msg = await channel.messages.fetch(messageId);
-
-      if (!msg)
-        return i.editReply('❌ Message tidak ditemukan');
-
-      const content = msg.content.toLowerCase();
-
-      if (!vouchRegex.test(content))
-        return i.editReply('❌ Bukan message vouch');
-
-      const amount = parseRobux(content);
-
-      if (!amount)
+      if (!robux)
         return i.editReply('❌ Tidak ada angka robux terdeteksi');
-
-      let robux = amount;
-
-      if (content.includes('after'))
-        robux = Math.ceil(amount / (1 - TAX));
 
       const db = loadDB();
 
@@ -99,13 +64,15 @@ module.exports = {
 
       saveDB(db);
 
-      return i.editReply(
-        `✅ Berhasil tambah\nUser: <@${msg.author.id}>\nRobux: ${robux}\nVouch: +1`
+      i.editReply(
+`✅ Berhasil tambah
+User: <@${msg.author.id}>
+Robux: ${robux}
+Vouch: +1`
       );
 
-    } catch (err) {
-      console.log(err);
-      return i.editReply('❌ Gagal ambil message');
+    } catch {
+      i.editReply('❌ Message tidak ditemukan / beda channel');
     }
   }
 };

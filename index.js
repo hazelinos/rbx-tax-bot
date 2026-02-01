@@ -51,13 +51,14 @@ const taxCommand = new SlashCommandBuilder()
   );
 
 
-// ===== CEK PLACE =====
-const placeCommand = new SlashCommandBuilder()
-  .setName('cekplace')
-  .setDescription('Cek place id & gamepass dari link Roblox')
+
+// ===== CEK USER =====
+const cekCommand = new SlashCommandBuilder()
+  .setName('cek')
+  .setDescription('Cek place id & gamepass dari username Roblox')
   .addStringOption(o =>
-    o.setName('link')
-      .setDescription('Link game Roblox')
+    o.setName('username')
+      .setDescription('Username Roblox')
       .setRequired(true)
   );
 
@@ -75,7 +76,7 @@ const rest = new REST({ version: '10' }).setToken(token);
     {
       body: [
         taxCommand.toJSON(),
-        placeCommand.toJSON()
+        cekCommand.toJSON()
       ]
     }
   );
@@ -103,7 +104,7 @@ client.on('interactionCreate', async interaction => {
 
 
   /* =========================
-     TAX COMMAND
+     TAX
   ========================= */
   if (interaction.commandName === 'tax') {
 
@@ -115,10 +116,10 @@ client.on('interactionCreate', async interaction => {
 
     if (mode === 'before') {
       gamepass = jumlah;
-      diterima = Math.floor(jumlah * (1 - TAX));
+      diterima = Math.floor(jumlah * 0.7);
     } else {
       diterima = jumlah;
-      gamepass = Math.ceil(jumlah / (1 - TAX));
+      gamepass = Math.ceil(jumlah / 0.7);
     }
 
     const harga = gamepass * rate;
@@ -141,41 +142,65 @@ Rate ${rate}`
 
 
   /* =========================
-     CEKPLACE COMMAND
+     CEK USERNAME
   ========================= */
-  if (interaction.commandName === 'cekplace') {
+  if (interaction.commandName === 'cek') {
 
-    const link = interaction.options.getString('link');
-
-    // ambil place id dari link
-    const match = link.match(/games\/(\d+)/);
-
-    if (!match)
-      return interaction.reply('❌ Link tidak valid.');
-
-    const placeId = match[1];
+    const username = interaction.options.getString('username');
 
     try {
 
-      const res = await fetch(
+      // 1️⃣ username → userId
+      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
+
+      const userData = await userRes.json();
+      const userId = userData.data[0]?.id;
+
+      if (!userId)
+        return interaction.reply('User tidak ditemukan.');
+
+
+
+      // 2️⃣ ambil game milik user
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=1`
+      );
+
+      const gameData = await gameRes.json();
+      const placeId = gameData.data[0]?.rootPlace?.id;
+
+      if (!placeId)
+        return interaction.reply('User tidak punya game.');
+
+
+
+      // 3️⃣ ambil gamepass
+      const passRes = await fetch(
         `https://games.roblox.com/v1/games/${placeId}/game-passes?limit=50`
       );
 
-      const data = await res.json();
+      const passData = await passRes.json();
 
       let passList = 'Tidak ada gamepass';
 
-      if (data.data && data.data.length) {
-        passList = data.data
+      if (passData.data?.length) {
+        passList = passData.data
           .map(p => `• ${p.name} — ${format(p.price ?? 0)} Robux`)
           .join('\n');
       }
 
+
+
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
-        .setTitle('Place Info')
+        .setTitle('Roblox Info')
         .setDescription(
-`Place ID : ${placeId}
+`Username : ${username}
+Place ID : ${placeId}
 
 Gamepass
 ${passList}`
@@ -184,7 +209,7 @@ ${passList}`
       interaction.reply({ embeds: [embed] });
 
     } catch {
-      interaction.reply('❌ Gagal mengambil data.');
+      interaction.reply('❌ Gagal mengambil data Roblox.');
     }
   }
 

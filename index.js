@@ -19,7 +19,7 @@ const TAX = 0.3;
 
 
 /* =========================
-   FORMAT HELPER
+   HELPER
 ========================= */
 
 const format = n => n.toLocaleString('id-ID');
@@ -33,14 +33,12 @@ const format = n => n.toLocaleString('id-ID');
 // ===== TAX =====
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Calculate Robux tax, gamepass & price')
-
+  .setDescription('Robux tax calculator')
   .addIntegerOption(o =>
     o.setName('jumlah')
       .setDescription('Robux amount')
       .setRequired(true)
   )
-
   .addStringOption(o =>
     o.setName('mode')
       .setDescription('Calculation mode')
@@ -50,10 +48,9 @@ const taxCommand = new SlashCommandBuilder()
       )
       .setRequired(true)
   )
-
   .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Set custom price')
+      .setDescription('Set custom price per Robux')
       .setRequired(true)
   );
 
@@ -82,7 +79,7 @@ const placeCommand = new SlashCommandBuilder()
 
 
 /* =========================
-   REGISTER COMMANDS
+   REGISTER
 ========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -121,7 +118,9 @@ client.on('interactionCreate', async interaction => {
 
 
 
-  /* ===== TAX ===== */
+  /* =================================================
+     TAX (cepat → reply biasa)
+  ================================================= */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -152,73 +151,93 @@ Harga    : Rp ${format(harga)}
 Rate ${rate}`
       );
 
-    await interaction.reply({ embeds: [embed] });
+    return interaction.reply({ embeds: [embed] });
   }
 
 
 
-  /* ===== GAMEPASS ===== */
+  /* =================================================
+     GAMEPASS (pakai deferReply biar ga timeout)
+  ================================================= */
   if (interaction.commandName === 'gamepass') {
 
-    const username = interaction.options.getString('username');
+    await interaction.deferReply();
 
-    const userRes = await fetch(`https://users.roblox.com/v1/usernames/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usernames: [username] })
-    });
+    try {
+      const username = interaction.options.getString('username');
 
-    const userData = await userRes.json();
-    const userId = userData.data[0]?.id;
+      const userRes = await fetch(`https://users.roblox.com/v1/usernames/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
-    if (!userId) return interaction.reply('User tidak ditemukan.');
+      const userData = await userRes.json();
+      const userId = userData.data[0]?.id;
 
-    const passRes = await fetch(
-      `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=50`
-    );
+      if (!userId)
+        return interaction.editReply('User tidak ditemukan.');
 
-    const passData = await passRes.json();
+      const passRes = await fetch(
+        `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=50`
+      );
 
-    if (!passData.data.length)
-      return interaction.reply('User tidak memiliki gamepass.');
+      const passData = await passRes.json();
 
-    const list = passData.data
-      .map(p => `• ${p.name} — ${p.price ?? 0} Robux`)
-      .join('\n');
+      if (!passData.data.length)
+        return interaction.editReply('User tidak memiliki gamepass.');
 
-    await interaction.reply(`Gamepass milik ${username}\n\n${list}`);
+      const list = passData.data
+        .map(p => `• ${p.name} — ${p.price ?? 0} Robux`)
+        .join('\n');
+
+      interaction.editReply(`Gamepass milik **${username}**\n\n${list}`);
+
+    } catch (err) {
+      interaction.editReply('Terjadi error saat mengambil data.');
+    }
   }
 
 
 
-  /* ===== PLACE ID ===== */
+  /* =================================================
+     PLACE ID (pakai deferReply juga)
+  ================================================= */
   if (interaction.commandName === 'placeid') {
 
-    const username = interaction.options.getString('username');
+    await interaction.deferReply();
 
-    const userRes = await fetch(`https://users.roblox.com/v1/usernames/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usernames: [username] })
-    });
+    try {
+      const username = interaction.options.getString('username');
 
-    const userData = await userRes.json();
-    const userId = userData.data[0]?.id;
+      const userRes = await fetch(`https://users.roblox.com/v1/usernames/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [username] })
+      });
 
-    if (!userId) return interaction.reply('User tidak ditemukan.');
+      const userData = await userRes.json();
+      const userId = userData.data[0]?.id;
 
-    const gameRes = await fetch(
-      `https://games.roblox.com/v2/users/${userId}/games?limit=1`
-    );
+      if (!userId)
+        return interaction.editReply('User tidak ditemukan.');
 
-    const gameData = await gameRes.json();
-    const placeId = gameData.data[0]?.rootPlace?.id ?? 'Tidak ditemukan';
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=1`
+      );
 
-    await interaction.reply(
+      const gameData = await gameRes.json();
+      const placeId = gameData.data[0]?.rootPlace?.id ?? 'Tidak ditemukan';
+
+      interaction.editReply(
 `Username : ${username}
 User ID  : ${userId}
 Place ID : ${placeId}`
-    );
+      );
+
+    } catch (err) {
+      interaction.editReply('Terjadi error saat mengambil data.');
+    }
   }
 
 });

@@ -17,42 +17,44 @@ const client = new Client({
 
 // ===== CONFIG =====
 const TAX = 0.3;
-const DEFAULT_RATE = 70; // default rate per robux
+const DEFAULT_RATE = 70;
+
 
 // format ribuan
 function format(num) {
   return Math.round(num).toLocaleString('en-US');
 }
 
+
 // ===== Slash Command =====
 const command = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Robux tax calculator (default rate 70)')
+  .setDescription('Calculate Robux tax, gamepass & price')
 
   .addIntegerOption(o =>
     o.setName('jumlah')
-      .setDescription('Jumlah robux')
+      .setDescription('Robux amount')
       .setRequired(true)
   )
 
   .addStringOption(o =>
-    o.setName('mode')
-      .setDescription('Mode perhitungan')
+    o.setName('after_tax')
+      .setDescription('Amount is after tax?')
       .addChoices(
-        { name: 'diterima', value: 'receive' },
-        { name: 'gamepass', value: 'gamepass' }
+        { name: 'iya', value: 'yes' },
+        { name: 'tidak', value: 'no' }
       )
-      .setRequired(true)
+      .setRequired(false)
   )
 
   .addNumberOption(o =>
     o.setName('rate')
-      .setDescription('Harga per 1 robux (opsional, default 70)')
+      .setDescription('Custom price per Robux')
       .setRequired(false)
   );
 
 
-// ===== Register Command =====
+// ===== Register command =====
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
@@ -68,18 +70,20 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const jumlah = interaction.options.getInteger('jumlah');
-  const mode = interaction.options.getString('mode');
+  const after = interaction.options.getString('after_tax') ?? 'no';
   const rateInput = interaction.options.getNumber('rate');
 
-  // pakai default kalau kosong
   const rate = rateInput ?? DEFAULT_RATE;
 
   let gamepass, diterima;
 
-  if (mode === 'receive') {
+  // after tax = iya
+  if (after === 'yes') {
     gamepass = Math.ceil(jumlah / (1 - TAX));
     diterima = jumlah;
-  } else {
+  }
+  // before tax
+  else {
     gamepass = jumlah;
     diterima = Math.floor(jumlah * (1 - TAX));
   }
@@ -87,7 +91,7 @@ client.on('interactionCreate', async interaction => {
   const harga = gamepass * rate;
 
   const embed = new EmbedBuilder()
-    .setColor('#5865F2') // biru discord
+    .setColor('#5865F2')
     .setTitle('Robux Tax Calculator')
     .setDescription(
 `Gamepass : ${format(gamepass)} Robux

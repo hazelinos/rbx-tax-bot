@@ -2,8 +2,8 @@ const {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
-  Routes,
   REST,
+  Routes,
   EmbedBuilder
 } = require('discord.js');
 
@@ -15,12 +15,15 @@ const client = new Client({
 });
 
 
-// ================= COMMAND =================
+
+/* =========================
+   SLASH COMMAND
+========================= */
 
 const command = new SlashCommandBuilder()
   .setName('tax')
   .setDescription('Robux tax calculator')
-  
+
   .addIntegerOption(o =>
     o.setName('jumlah')
       .setDescription('Jumlah Robux')
@@ -31,80 +34,101 @@ const command = new SlashCommandBuilder()
     o.setName('mode')
       .setDescription('Mode perhitungan')
       .addChoices(
-        { name: 'after tax', value: 'after' },
-        { name: 'before tax', value: 'before' }
+        { name: 'After Tax', value: 'after' },
+        { name: 'Before Tax', value: 'before' }
       )
       .setRequired(true)
   )
 
   .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Set custom price')
+      .setDescription('Set custom price per Robux')
       .setRequired(true)
   );
 
 
-// ================= REGISTER =================
+
+/* =========================
+   REGISTER COMMAND
+========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  await rest.put(
-    Routes.applicationCommands(clientId),
-    { body: [command.toJSON()] }
-  );
+  try {
+    await rest.put(
+      Routes.applicationCommands(clientId),
+      { body: [command.toJSON()] }
+    );
+    console.log('✅ Slash command registered');
+  } catch (err) {
+    console.error(err);
+  }
 })();
 
 
-// ================= BOT READY =================
+
+/* =========================
+   BOT READY
+========================= */
 
 client.once('ready', () => {
-  console.log(`Bot online: ${client.user.tag}`);
+  console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
 
-// ================= FORMATTER =================
+
+/* =========================
+   HELPER FORMAT
+========================= */
 
 const format = n => n.toLocaleString('id-ID');
 
 
-// ================= INTERACTION =================
+
+/* =========================
+   COMMAND HANDLER
+========================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const jumlah = interaction.options.getInteger('jumlah');
-  const mode = interaction.options.getString('mode');
-  const rate = interaction.options.getInteger('rate');
+  if (interaction.commandName === 'tax') {
 
-  let gamepass, diterima;
+    const jumlah = interaction.options.getInteger('jumlah');
+    const mode   = interaction.options.getString('mode');
+    const rate   = interaction.options.getInteger('rate');
 
-  if (mode === 'before') {
-    gamepass = jumlah;
-    diterima = Math.floor(jumlah * 0.7);
-  } else {
-    diterima = jumlah;
-    gamepass = Math.ceil(jumlah / 0.7);
-  }
+    let gamepass, diterima;
 
-  const harga = gamepass * rate;
+    // logic tax 30%
+    if (mode === 'before') {
+      gamepass = jumlah;
+      diterima = Math.floor(jumlah * 0.7);
+    } else {
+      diterima = jumlah;
+      gamepass = Math.ceil(jumlah / 0.7);
+    }
 
-  const embed = new EmbedBuilder()
-    .setColor('#2b8cff') // biru
-    .setTitle('Robux Tax Calculator')
-    .setDescription(
+    const harga = gamepass * rate;
+
+
+    const embed = new EmbedBuilder()
+      .setColor(0x2B7FFF) // biru
+      .setTitle('Robux Tax Calculator')
+      .setDescription(
 `Gamepass : ${format(gamepass)} Robux
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
 ──────────────
-rate ${rate}`
-    );
+Rate ${rate}`
+      );
 
-  await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed] });
+  }
 });
 
 
-// ================= LOGIN =================
 
 client.login(token);

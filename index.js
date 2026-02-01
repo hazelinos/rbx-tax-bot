@@ -7,23 +7,55 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
+const fs = require('fs');
+const fetch = require('node-fetch');
+
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
-
 const TAX = 0.3;
-const format = n => n.toLocaleString('id-ID');
-
-/* 🔵 warna embed global (biru tua) */
 const EMBED_COLOR = 0x1F6FEB;
 
+const format = n => n.toLocaleString('id-ID');
 
 
-/* ================= COMMANDS ================= */
 
+/* =========================
+   DATABASE
+========================= */
+
+const DB_FILE = './leaderboard.json';
+
+let leaderboardData = {};
+
+if (fs.existsSync(DB_FILE)) {
+  leaderboardData = JSON.parse(fs.readFileSync(DB_FILE));
+}
+
+const saveDB = () =>
+  fs.writeFileSync(DB_FILE, JSON.stringify(leaderboardData, null, 2));
+
+
+
+/* =========================
+   CLIENT
+========================= */
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
+
+
+/* =========================
+   COMMANDS
+========================= */
+
+// TAX
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
   .setDescription('Robux tax calculator')
@@ -40,10 +72,10 @@ const taxCommand = new SlashCommandBuilder()
   .addIntegerOption(o =>
     o.setName('rate')
       .setDescription('Harga per robux')
-      .setRequired(true)
-  );
+      .setRequired(true));
 
 
+// PLACE ID
 const placeCommand = new SlashCommandBuilder()
   .setName('placeid')
   .setDescription('Mengambil place id player')
@@ -54,19 +86,16 @@ const placeCommand = new SlashCommandBuilder()
   );
 
 
-/* 🔥 NEW GAMEPASS COMMAND */
-const gamepassCommand = new SlashCommandBuilder()
-  .setName('gamepass')
-  .setDescription('Melihat semua gamepass milik player')
-  .addStringOption(o =>
-    o.setName('username')
-      .setDescription('Username Roblox')
-      .setRequired(true)
-  );
+// LEADERBOARD
+const leaderboardCommand = new SlashCommandBuilder()
+  .setName('leaderboard')
+  .setDescription('Top Robux Spenders');
 
 
 
-/* ================= REGISTER ================= */
+/* =========================
+   REGISTER COMMANDS
+========================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -77,7 +106,7 @@ const rest = new REST({ version: '10' }).setToken(token);
       body: [
         taxCommand.toJSON(),
         placeCommand.toJSON(),
-        gamepassCommand.toJSON() // ✅ added
+        leaderboardCommand.toJSON()
       ]
     }
   );
@@ -85,7 +114,9 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 
 
-/* ================= READY ================= */
+/* =========================
+   READY
+========================= */
 
 client.once('ready', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
@@ -93,17 +124,16 @@ client.once('ready', () => {
 
 
 
-/* ================= INTERACTION ================= */
+/* =========================
+   INTERACTIONS
+========================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
 
 
-  /* ===================================================== */
-  /* ======================= TAX ========================= */
-  /* ===================================================== */
-
+  /* ===== TAX ===== */
   if (interaction.commandName === 'tax') {
 
     const jumlah = interaction.options.getInteger('jumlah');
@@ -139,10 +169,7 @@ Rate ${rate}`
 
 
 
-  /* ===================================================== */
-  /* ===================== PLACE ID ====================== */
-  /* ===================================================== */
-
+  /* ===== PLACEID ===== */
   if (interaction.commandName === 'placeid') {
 
     await interaction.deferReply();
@@ -150,7 +177,6 @@ Rate ${rate}`
     try {
       const username = interaction.options.getString('username');
 
-      // username → userId
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -166,96 +192,105 @@ Rate ${rate}`
       if (!userId)
         return interaction.editReply('User tidak ditemukan.');
 
-      // ambil place dari creations
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
       );
 
       const gameData = await gameRes.json();
-
       const game = gameData.data?.find(g => g.rootPlace?.id);
+
       const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
 
       const embed = new EmbedBuilder()
         .setColor(EMBED_COLOR)
         .setTitle(`Place ID milik ${username} :`)
-        .setDescription(
-`\`\`\`
-${placeId}
-\`\`\``
-        );
+        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
 
       return interaction.editReply({ embeds: [embed] });
 
-    } catch (err) {
-      console.log(err);
+    } catch {
       return interaction.editReply('Gagal mengambil data Roblox.');
     }
   }
 
 
 
-  /* ===================================================== */
-  /* ===================== GAMEPASS ====================== */
-  /* ===================================================== */
+  /* ===== LEADERBOARD ===== */
+  if (interaction.commandName === 'leaderboard') {
 
-  if (interaction.commandName === 'gamepass') {
+    const sorted = Object.entries(leaderboardData)
+      .sort((a, b) => b[1].robux - a[1].robux)
+      .slice(0, 10);
 
-    await interaction.deferReply();
+    if (!sorted.length)
+      return interaction.reply('Belum ada data leaderboard.');
 
-    try {
-      const username = interaction.options.getString('username');
+    const lines = sorted.map(([id, data], i) =>
+      `#${i + 1}  <@${id}>  • ${format(data.robux)} Robux • ${data.vouch} vouch`
+    );
 
-      // username → userId
-      const userRes = await fetch(
-        'https://users.roblox.com/v1/usernames/users',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usernames: [username] })
-        }
-      );
+    const embed = new EmbedBuilder()
+      .setColor(EMBED_COLOR)
+      .setTitle('Top Robux Spenders')
+      .setDescription(lines.join('\n'))
+      .setFooter({ text: 'Auto tracked from #vouch' });
 
-      const userData = await userRes.json();
-      const userId = userData.data?.[0]?.id;
-
-      if (!userId)
-        return interaction.editReply('User tidak ditemukan.');
-
-
-
-      // 🔥 langsung ambil semua gamepass dari user (FIX METHOD)
-      const passRes = await fetch(
-        `https://develop.roblox.com/v1/users/${userId}/game-passes?limit=100`
-      );
-
-      const passData = await passRes.json();
-
-      let text = 'Tidak ada gamepass';
-
-      if (passData.data?.length) {
-        text = passData.data
-          .map(p =>
-            `• ${p.name} — ${format(p.price ?? 0)} Robux (${p.id})`
-          )
-          .join('\n');
-      }
-
-
-
-      const embed = new EmbedBuilder()
-        .setColor(EMBED_COLOR)
-        .setTitle(`Gamepass milik ${username} :`)
-        .setDescription(text);
-
-      return interaction.editReply({ embeds: [embed] });
-
-    } catch (err) {
-      console.log(err);
-      return interaction.editReply('Gagal mengambil gamepass.');
-    }
+    return interaction.reply({
+      embeds: [embed],
+      allowedMentions: { parse: [] }
+    });
   }
 
+});
+
+
+
+/* =========================
+   AUTO VOUCH PARSER
+========================= */
+
+client.on('messageCreate', message => {
+
+  if (message.author.bot) return;
+  if (message.channel.name !== 'vouch') return;
+
+  const content = message.content.toLowerCase();
+
+  const triggers = ['vouch', 'vc', 'voucher', 'beli', 'buy'];
+  if (!triggers.some(t => content.includes(t))) return;
+
+  const match = content.match(/(\d+(\.\d+)?\s?(k)?)/);
+  if (!match) return;
+
+  let jumlah = match[0];
+
+  if (jumlah.includes('k')) {
+    jumlah = parseFloat(jumlah.replace('k', '')) * 1000;
+  }
+
+  jumlah = Math.round(jumlah);
+
+  let mode = 'before';
+
+  if (/(after|aft|\ba\b)/.test(content)) mode = 'after';
+  if (/(before|bf|\bb\b)/.test(content)) mode = 'before';
+
+  let tambah = mode === 'after'
+    ? Math.ceil(jumlah / 0.7)
+    : jumlah;
+
+  const uid = message.author.id;
+
+  if (!leaderboardData[uid]) {
+    leaderboardData[uid] = { robux: 0, vouch: 0 };
+  }
+
+  leaderboardData[uid].robux += tambah;
+  leaderboardData[uid].vouch += 1;
+
+  saveDB();
+
+  message.reply(`Vouch tercatat • +${format(tambah)} Robux`);
 });
 
 

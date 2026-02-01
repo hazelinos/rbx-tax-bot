@@ -39,6 +39,7 @@ const client = new Client({
 /* ================= DATABASE ================= */
 
 const DB_FILE = './leaderboard.json';
+
 let db = fs.existsSync(DB_FILE)
   ? JSON.parse(fs.readFileSync(DB_FILE))
   : {};
@@ -46,63 +47,94 @@ let db = fs.existsSync(DB_FILE)
 const saveDB = () =>
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 
-function addData(id, robux, vouch = 1) {
+function addData(id, robux = 0, vouch = 0) {
   if (!db[id]) db[id] = { robux: 0, vouch: 0 };
+
   db[id].robux += robux;
   db[id].vouch += vouch;
+
+  if (db[id].robux < 0) db[id].robux = 0;
+  if (db[id].vouch < 0) db[id].vouch = 0;
+
   saveDB();
 }
 
 /* ================= WIB TIME ================= */
 
 function getSmartTime() {
-  return new Intl.DateTimeFormat('id-ID', {
+  const time = new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
     minute: '2-digit'
   }).format(new Date());
+
+  return `Today at ${time}`;
 }
 
 /* ================= COMMANDS ================= */
 
 const commands = [
 
+  /* TAX */
   new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Robux tax calculator')
-    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('jumlah')
+        .setDescription('jumlah robux')
+        .setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
+        .setDescription('mode tax')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }
-        ).setRequired(true))
-    .addIntegerOption(o => o.setName('rate').setRequired(true)),
+        )
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('rate')
+        .setDescription('harga per robux')
+        .setRequired(true)),
 
+  /* PLACEID */
   new SlashCommandBuilder()
     .setName('placeid')
-    .setDescription('Ambil place id player')
+    .setDescription('Ambil place id player roblox')
     .addStringOption(o =>
-      o.setName('username').setRequired(true)),
+      o.setName('username')
+        .setDescription('username roblox')
+        .setRequired(true)),
 
+  /* LEADERBOARD */
   new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Top Spend Robux & Vouch'),
+    .setDescription('Top spend robux & vouch leaderboard'),
 
-  /* PLUS / MINUS ONLY */
+  /* SETLEADERBOARD */
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Tambah / kurang leaderboard')
+    .setDescription('Tambah atau kurang leaderboard manual')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addStringOption(o =>
       o.setName('mode')
+        .setDescription('plus atau minus')
         .addChoices(
           { name: '+', value: '+' },
           { name: '-', value: '-' }
-        ).setRequired(true))
-    .addUserOption(o => o.setName('user').setRequired(true))
-    .addIntegerOption(o => o.setName('robux').setRequired(true))
-    .addIntegerOption(o => o.setName('vouch').setRequired(true))
+        )
+        .setRequired(true))
+    .addUserOption(o =>
+      o.setName('user')
+        .setDescription('target user')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('robux')
+        .setDescription('jumlah robux')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('vouch')
+        .setDescription('jumlah vouch')
+        .setRequired(true))
 
 ].map(c => c.toJSON());
 
@@ -112,6 +144,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
   await rest.put(Routes.applicationCommands(clientId), { body: commands });
+  console.log('✅ Slash Commands Registered');
 })();
 
 /* ================= READY ================= */
@@ -126,17 +159,13 @@ const vouchRegex =
 /(vouch|vouc|voc|voch|v0uch|vuch|vouchh|vouhc|v0cuh)/i;
 
 function parseRobux(text) {
-  const match = text.match(/(\d+(?:[.,]\d+)?k?)/i);
+  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
   if (!match) return null;
 
-  let val = match[1]
-    .toLowerCase()
-    .replace(/\./g, '')
-    .replace(',', '.');
+  let val = match[1].toLowerCase();
+  if (val.includes('k')) return parseFloat(val) * 1000;
 
-  return val.includes('k')
-    ? parseFloat(val) * 1000
-    : parseFloat(val);
+  return parseFloat(val);
 }
 
 client.on('messageCreate', msg => {
@@ -148,21 +177,7 @@ client.on('messageCreate', msg => {
   const amount = parseRobux(content);
   if (!amount) return;
 
-  let robux = amount;
-
-  if (content.includes('after'))
-    robux = Math.ceil(amount / (1 - TAX));
-
-  const isRemove =
-    content.includes('hapus') ||
-    content.includes('remove') ||
-    content.includes('refund') ||
-    content.includes('-vouch');
-
-  if (isRemove)
-    addData(msg.author.id, -robux, -1);
-  else
-    addData(msg.author.id, robux, 1);
+  addData(msg.author.id, amount, 1);
 });
 
 /* ================= LEADERBOARD ================= */
@@ -186,7 +201,7 @@ function buildEmbed(page = 0) {
 
   if (!desc) desc = 'Belum ada data';
 
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
@@ -194,6 +209,8 @@ function buildEmbed(page = 0) {
       text: `Nice Blox • Page ${page + 1}/${pages} | ${getSmartTime()}`,
       iconURL: FOOTER_ICON
     });
+
+  return { embed, pages };
 }
 
 /* ================= INTERACTIONS ================= */
@@ -231,79 +248,13 @@ client.on('interactionCreate', async i => {
 Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
-Rate ${format(rate)}`
+Rate ${rate}`
           )
       ]
     });
   }
 
-  /* PLACEID */
-  if (i.commandName === 'placeid') {
-
-    await i.deferReply();
-
-    try {
-      const username = i.options.getString('username');
-
-      const userRes = await fetch('https://users.roblox.com/v1/usernames/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usernames: [username] })
-      });
-
-      const userData = await userRes.json();
-      const userId = userData.data?.[0]?.id;
-
-      const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?limit=50`
-      );
-
-      const gameData = await gameRes.json();
-      const placeId = gameData.data?.[0]?.rootPlace?.id ?? 'Tidak ditemukan';
-
-      return i.editReply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(EMBED_COLOR)
-            .setTitle(`Place ID milik ${username} :`)
-            .setDescription(`\`\`\`\n${placeId}\n\`\`\``)
-        ]
-      });
-
-    } catch {
-      return i.editReply('Gagal mengambil data Roblox.');
-    }
-  }
-
-  /* LEADERBOARD */
-  if (i.commandName === 'leaderboard') {
-
-    let page = 0;
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary)
-    );
-
-    const msg = await i.reply({
-      embeds: [buildEmbed(page)],
-      components: [row],
-      fetchReply: true
-    });
-
-    const collector = msg.createMessageComponentCollector({ time: 120000 });
-
-    collector.on('collect', async btn => {
-      if (btn.user.id !== i.user.id) return;
-
-      page += btn.customId === 'next' ? 1 : -1;
-      if (page < 0) page = 0;
-
-      btn.update({ embeds: [buildEmbed(page)] });
-    });
-  }
-
-  /* ADMIN + / - */
+  /* SETLEADERBOARD (+ / -) */
   if (i.commandName === 'setleaderboard') {
 
     const mode = i.options.getString('mode');
@@ -311,19 +262,12 @@ Rate ${format(rate)}`
     const robux = i.options.getInteger('robux');
     const vouch = i.options.getInteger('vouch');
 
-    if (!db[user.id]) db[user.id] = { robux: 0, vouch: 0 };
+    if (mode === '+')
+      addData(user.id, robux, vouch);
+    else
+      addData(user.id, -robux, -vouch);
 
-    if (mode === '+') {
-      db[user.id].robux += robux;
-      db[user.id].vouch += vouch;
-    } else {
-      db[user.id].robux -= robux;
-      db[user.id].vouch -= vouch;
-    }
-
-    saveDB();
-
-    return i.reply({ content: '✅ Updated', ephemeral: true });
+    return i.reply('✅ Updated');
   }
 
 });

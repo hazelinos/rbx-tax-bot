@@ -7,7 +7,6 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
 
@@ -54,7 +53,7 @@ const taxCommand = new SlashCommandBuilder()
 
   .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Custom price per Robux')
+      .setDescription('Set custom price')
       .setRequired(true)
   );
 

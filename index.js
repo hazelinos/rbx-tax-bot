@@ -2,11 +2,10 @@ const {
   Client,
   GatewayIntentBits,
   SlashCommandBuilder,
+  Routes,
+  REST,
   EmbedBuilder
 } = require('discord.js');
-
-const { REST } = require('@discordjs/rest');
-const { Routes } = require('discord-api-types/v10');
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -15,46 +14,38 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== CONFIG =====
-const TAX = 0.3;
-const DEFAULT_RATE = 70;
 
+// ================= COMMAND =================
 
-// format ribuan
-function format(num) {
-  return Math.round(num).toLocaleString('en-US');
-}
-
-
-// ===== Slash Command =====
 const command = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Calculate Robux tax, gamepass & price')
-
+  .setDescription('Robux tax calculator')
+  
   .addIntegerOption(o =>
     o.setName('jumlah')
-      .setDescription('Robux amount')
+      .setDescription('Jumlah Robux')
       .setRequired(true)
   )
 
   .addStringOption(o =>
-    o.setName('after_tax')
-      .setDescription('Amount is after tax?')
+    o.setName('mode')
+      .setDescription('Mode perhitungan')
       .addChoices(
-        { name: 'iya', value: 'yes' },
-        { name: 'tidak', value: 'no' }
+        { name: 'after tax', value: 'after' },
+        { name: 'before tax', value: 'before' }
       )
-      .setRequired(false)
+      .setRequired(true)
   )
 
-  .addNumberOption(o =>
+  .addIntegerOption(o =>
     o.setName('rate')
-      .setDescription('Custom price per Robux')
-      .setRequired(false)
+      .setDescription('Set custom price')
+      .setRequired(true)
   );
 
 
-// ===== Register command =====
+// ================= REGISTER =================
+
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
@@ -65,33 +56,41 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 
-// ===== Logic =====
+// ================= BOT READY =================
+
+client.once('ready', () => {
+  console.log(`Bot online: ${client.user.tag}`);
+});
+
+
+// ================= FORMATTER =================
+
+const format = n => n.toLocaleString('id-ID');
+
+
+// ================= INTERACTION =================
+
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const jumlah = interaction.options.getInteger('jumlah');
-  const after = interaction.options.getString('after_tax') ?? 'no';
-  const rateInput = interaction.options.getNumber('rate');
-
-  const rate = rateInput ?? DEFAULT_RATE;
+  const mode = interaction.options.getString('mode');
+  const rate = interaction.options.getInteger('rate');
 
   let gamepass, diterima;
 
-  // after tax = iya
-  if (after === 'yes') {
-    gamepass = Math.ceil(jumlah / (1 - TAX));
-    diterima = jumlah;
-  }
-  // before tax
-  else {
+  if (mode === 'before') {
     gamepass = jumlah;
-    diterima = Math.floor(jumlah * (1 - TAX));
+    diterima = Math.floor(jumlah * 0.7);
+  } else {
+    diterima = jumlah;
+    gamepass = Math.ceil(jumlah / 0.7);
   }
 
   const harga = gamepass * rate;
 
   const embed = new EmbedBuilder()
-    .setColor('#5865F2')
+    .setColor('#2b8cff') // biru
     .setTitle('Robux Tax Calculator')
     .setDescription(
 `Gamepass : ${format(gamepass)} Robux
@@ -99,15 +98,13 @@ Diterima : ${format(diterima)} Robux
 Harga    : Rp ${format(harga)}
 
 ──────────────
-Rate ${rate}/robux`
+rate ${rate}`
     );
 
   await interaction.reply({ embeds: [embed] });
 });
 
 
-client.once('ready', () => {
-  console.log(`✅ Bot online: ${client.user.tag}`);
-});
+// ================= LOGIN =================
 
 client.login(token);

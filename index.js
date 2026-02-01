@@ -16,10 +16,9 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-/* ================= CONFIG ================= */
-
 const TAX = 0.3;
-const BLUE = 0x1f2b3a; // biru tua clean
+const BLUE = 0x1F6FEB;
+
 const format = n => n.toLocaleString('id-ID');
 
 
@@ -27,41 +26,29 @@ const format = n => n.toLocaleString('id-ID');
 
 const taxCommand = new SlashCommandBuilder()
   .setName('tax')
-  .setDescription('Hitung pajak Robux')
-  .addIntegerOption(o =>
-    o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
+  .setDescription('Robux tax calculator')
+  .addIntegerOption(o => o.setName('jumlah').setRequired(true))
   .addStringOption(o =>
     o.setName('mode')
-      .setDescription('Mode')
       .addChoices(
         { name: 'After Tax', value: 'after' },
         { name: 'Before Tax', value: 'before' }
       )
       .setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('rate')
-      .setDescription('Harga per robux')
-      .setRequired(true));
+  .addIntegerOption(o => o.setName('rate').setRequired(true));
 
 
 const placeCommand = new SlashCommandBuilder()
   .setName('placeid')
   .setDescription('Mengambil place id player')
-  .addStringOption(o =>
-    o.setName('username')
-      .setDescription('Username Roblox')
-      .setRequired(true)
-  );
+  .addStringOption(o => o.setName('username').setRequired(true));
 
 
 const passCommand = new SlashCommandBuilder()
   .setName('gamepass')
-  .setDescription('Mengambil semua gamepass player')
-  .addStringOption(o =>
-    o.setName('username')
-      .setDescription('Username Roblox')
-      .setRequired(true)
-  );
+  .setDescription('Mengambil semua gamepas player')
+  .addStringOption(o => o.setName('username').setRequired(true));
+
 
 
 /* ================= REGISTER ================= */
@@ -80,6 +67,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 
+
 /* ================= READY ================= */
 
 client.once('ready', () => {
@@ -87,7 +75,8 @@ client.once('ready', () => {
 });
 
 
-/* ================= HELPER ================= */
+
+/* ================= HELPERS ================= */
 
 async function getUserId(username) {
   const res = await fetch('https://users.roblox.com/v1/usernames/users', {
@@ -95,7 +84,6 @@ async function getUserId(username) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ usernames: [username] })
   });
-
   const data = await res.json();
   return data.data?.[0]?.id;
 }
@@ -105,26 +93,36 @@ async function getUserGames(userId) {
   const res = await fetch(
     `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
   );
-
   const data = await res.json();
   return data.data || [];
 }
 
 
-async function getGamepasses(placeId) {
+/* 🔥 FIX UTAMA DI SINI */
+async function getUniverseId(placeId) {
   const res = await fetch(
-    `https://games.roblox.com/v1/games/${placeId}/game-passes?limit=100`
+    `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeId}`
   );
+  const data = await res.json();
+  return data[0]?.universeId;
+}
 
+
+async function getGamepasses(universeId) {
+  const res = await fetch(
+    `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
+  );
   const data = await res.json();
   return data.data || [];
 }
+
 
 
 /* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+
 
 
   /* ================= TAX ================= */
@@ -169,72 +167,61 @@ Rate ${rate}`
 
     await interaction.deferReply();
 
-    try {
-      const username = interaction.options.getString('username');
+    const username = interaction.options.getString('username');
 
-      const userId = await getUserId(username);
-      if (!userId) return interaction.editReply('User tidak ditemukan.');
+    const userId = await getUserId(username);
+    const games = await getUserGames(userId);
 
-      const games = await getUserGames(userId);
+    const placeId = games.find(g => g.rootPlace?.id)?.rootPlace?.id;
 
-      const placeId = games.find(g => g.rootPlace?.id)?.rootPlace?.id;
+    const embed = new EmbedBuilder()
+      .setColor(BLUE)
+      .setTitle(`Place id milik ${username} :`)
+      .setDescription(`${placeId ?? 'Tidak ditemukan'}`);
 
-      const embed = new EmbedBuilder()
-        .setColor(BLUE)
-        .setTitle(`Place id milik ${username} :`)
-        .setDescription(`${placeId ?? 'Tidak ditemukan'}`);
-
-      return interaction.editReply({ embeds: [embed] });
-
-    } catch {
-      interaction.editReply('Gagal mengambil data.');
-    }
+    return interaction.editReply({ embeds: [embed] });
   }
 
 
 
-  /* ================= GAMEPASS ================= */
+  /* ================= GAMEPASS (FIXED) ================= */
 
   if (interaction.commandName === 'gamepass') {
 
     await interaction.deferReply();
 
-    try {
-      const username = interaction.options.getString('username');
+    const username = interaction.options.getString('username');
 
-      const userId = await getUserId(username);
-      if (!userId) return interaction.editReply('User tidak ditemukan.');
+    const userId = await getUserId(username);
+    const games = await getUserGames(userId);
 
-      const games = await getUserGames(userId);
+    let allPasses = [];
 
-      let allPasses = [];
+    for (const g of games) {
+      const placeId = g.rootPlace?.id;
+      if (!placeId) continue;
 
-      for (const g of games) {
-        const placeId = g.rootPlace?.id;
-        if (!placeId) continue;
+      const universeId = await getUniverseId(placeId);
+      if (!universeId) continue;
 
-        const passes = await getGamepasses(placeId);
-        allPasses.push(...passes);
-      }
+      const passes = await getGamepasses(universeId);
 
-      if (!allPasses.length) {
-        return interaction.editReply('Tidak ada gamepass.');
-      }
-
-      const text = allPasses
-        .map(p => `${p.name} - ${format(p.price ?? 0)} Robux`)
-        .join('\n');
-
-      const embed = new EmbedBuilder()
-        .setColor(BLUE)
-        .setTitle(`Gamepass milik ${username}`)
-        .setDescription(text);
-
-      return interaction.editReply({ embeds: [embed] });
-
-    } catch {
-      interaction.editReply('Gagal mengambil data.');
+      allPasses.push(...passes);
     }
+
+    if (!allPasses.length)
+      return interaction.editReply('Tidak ada gamepas');
+
+    const text = allPasses
+      .map(p => `${p.name} - ${format(p.price ?? 0)} Robux`)
+      .join('\n');
+
+    const embed = new EmbedBuilder()
+      .setColor(BLUE)
+      .setTitle(`Gamepas milik ${username}`)
+      .setDescription(text);
+
+    return interaction.editReply({ embeds: [embed] });
   }
 
 });

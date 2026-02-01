@@ -6,7 +6,7 @@ const {
 const fs = require('fs');
 
 const DB_FILE = './leaderboard.json';
-const TAX_RATE = 0.7;
+const TAX = 0.3;
 
 /* ================= DB ================= */
 
@@ -25,38 +25,45 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Edit leaderboard (+/- robux & vouch)')
+    .setDescription('Settinh Leaderboard')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 
-    /* 1️⃣ ROBUX (+/- langsung) */
+    /* 1️⃣ robux (+ / -) */
     .addIntegerOption(o =>
       o.setName('robux')
-        .setDescription('contoh: 500 / -200')
+        .setDescription('Jumlah Robux')
         .setRequired(true))
 
-    /* 2️⃣ VOUCH (+/- langsung) */
+    /* 2️⃣ vouch (+ / -) */
     .addIntegerOption(o =>
       o.setName('vouch')
-        .setDescription('contoh: 1 / -1')
+        .setDescription('Jumlah Vouch')
         .setRequired(true))
 
-    /* 3️⃣ AFTER TAX */
-    .addBooleanOption(o =>
+    /* 3️⃣ after tax */
+    .addStringOption(o =>
       o.setName('after')
-        .setDescription('pakai hitungan after tax? (ya/tidak)')
+        .setDescription('After tax?')
+        .addChoices(
+          { name: 'Ya', value: 'yes' },
+          { name: 'Tidak', value: 'no' }
+        )
         .setRequired(true))
 
-    /* 4️⃣ USER */
+    /* 4️⃣ user */
     .addUserOption(o =>
       o.setName('user')
-        .setDescription('target user')
+        .setDescription('Target user')
         .setRequired(true)),
+
+
+  /* ================= EXECUTE ================= */
 
   async execute(i) {
 
-    let robux = i.options.getInteger('robux');
-    let vouch = i.options.getInteger('vouch');
-    const after = i.options.getBoolean('after');
+    const robuxInput = i.options.getInteger('robux');
+    const vouchInput = i.options.getInteger('vouch');
+    const after = i.options.getString('after') === 'yes';
     const user = i.options.getUser('user');
 
     const db = loadDB();
@@ -64,28 +71,31 @@ module.exports = {
     if (!db[user.id])
       db[user.id] = { robux: 0, vouch: 0 };
 
-    /* AFTER TAX CONVERT */
-    if (after && robux > 0)
-      robux = Math.ceil(robux / TAX_RATE);
+    let robuxFinal = robuxInput;
 
-    /* APPLY */
-    db[user.id].robux += robux;
-    db[user.id].vouch += vouch;
+    /* 🔵 hitung after tax */
+    if (after && robuxInput > 0) {
+      robuxFinal = Math.ceil(robuxInput / (1 - TAX));
+    }
 
+    /* tambah / kurang otomatis */
+    db[user.id].robux += robuxFinal;
+    db[user.id].vouch += vouchInput;
+
+    /* jangan minus */
     if (db[user.id].robux < 0) db[user.id].robux = 0;
     if (db[user.id].vouch < 0) db[user.id].vouch = 0;
 
     saveDB(db);
 
-    await i.reply({
-      content:
+    /* reply */
+    return i.reply(
 `✅ Updated
 
 User : <@${user.id}>
-Robux: ${robux}
-Vouch: ${vouch}
-After : ${after ? 'Yes' : 'No'}`,
-      ephemeral: true
-    });
+Robux : ${robuxFinal}
+Vouch : ${vouchInput}
+Mode : ${after ? 'After Tax' : 'Normal'}`
+    );
   }
 };

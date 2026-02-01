@@ -1,62 +1,60 @@
-const {
-  Client,
-  GatewayIntentBits,
-  Collection,
-  REST,
-  Routes
-} = require('discord.js');
+/* ================= AUTO VOUCH FINAL ================= */
 
-const fs = require('fs');
-const path = require('path');
+const fs2 = require('fs');
 
-const token = process.env.TOKEN;
-const clientId = process.env.CLIENT_ID;
+const DB_FILE = './leaderboard.json';
+const TAX_RATE = 0.7; // 30% tax
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+const vouchRegex =
+/(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
 
-client.commands = new Collection();
-
-const commands = [];
-
-const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(f => f.endsWith('.js'));
-
-for (const file of commandFiles) {
-  const cmd = require(`./commands/${file}`);
-
-  client.commands.set(cmd.data.name, cmd);
-  commands.push(cmd.data.toJSON());
+function loadDB() {
+  if (!fs2.existsSync(DB_FILE)) return {};
+  return JSON.parse(fs2.readFileSync(DB_FILE));
 }
 
-const rest = new REST({ version: '10' }).setToken(token);
+function saveDB(db) {
+  fs2.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+}
 
-(async () => {
-  await rest.put(
-    Routes.applicationCommands(clientId),
-    { body: commands }
-  );
+client.on('messageCreate', msg => {
+  if (msg.author.bot) return;
 
-  console.log('✅ Slash Commands Registered:', commandFiles);
-})();
+  const text = msg.content.toLowerCase();
 
-client.once('clientReady', () => {
-  console.log(`✅ Bot Online: ${client.user.tag}`);
-});
+  /* harus ada kata vouch/typo */
+  if (!vouchRegex.test(text)) return;
 
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  /* ambil angka */
+  const match = text.match(/(\d+(?:k)?)/i);
+  if (!match) return;
 
-  const cmd = client.commands.get(interaction.commandName);
-  if (!cmd) return;
+  let amount = match[1].toLowerCase();
 
-  try {
-    await cmd.execute(interaction);
-  } catch (err) {
-    console.error(err);
-    interaction.reply({ content: 'Error ❌', ephemeral: true });
+  /* support 1k */
+  if (amount.includes('k'))
+    amount = parseFloat(amount) * 1000;
+  else
+    amount = parseInt(amount);
+
+  if (!amount || amount < 1 || amount > 10000000) return;
+
+  /* ONLY after yang dihitung pajak */
+  if (/after|aftr|afer|fter/i.test(text)) {
+    amount = Math.ceil(amount / TAX_RATE);
   }
-});
 
-client.login(token);
+  /* selain after (termasuk kosong/before) = normal */
+
+  const db = loadDB();
+
+  if (!db[msg.author.id])
+    db[msg.author.id] = { robux: 0, vouch: 0 };
+
+  db[msg.author.id].robux += amount;
+  db[msg.author.id].vouch += 1;
+
+  saveDB(db);
+
+  console.log(`AUTO VOUCH → ${msg.author.username} +${amount}`);
+});

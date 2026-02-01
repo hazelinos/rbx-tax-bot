@@ -7,7 +7,8 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  PermissionFlagsBits
 } = require('discord.js');
 
 const fs = require('fs');
@@ -20,7 +21,6 @@ const clientId = process.env.CLIENT_ID;
 const TAX = 0.3;
 const EMBED_COLOR = 0x1F6FEB;
 
-/* foto footer lu */
 const FOOTER_ICON =
   'https://cdn.discordapp.com/attachments/1449386611036127343/1467515005825187972/20260107_131913.png';
 
@@ -39,11 +39,9 @@ const client = new Client({
 /* ================= DATABASE ================= */
 
 const DB_FILE = './leaderboard.json';
-let db = {};
-
-if (fs.existsSync(DB_FILE)) {
-  db = JSON.parse(fs.readFileSync(DB_FILE));
-}
+let db = fs.existsSync(DB_FILE)
+  ? JSON.parse(fs.readFileSync(DB_FILE))
+  : {};
 
 const saveDB = () =>
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
@@ -57,56 +55,57 @@ function addData(id, robux, vouch = 1) {
 
 /* ================= COMMANDS ================= */
 
-const taxCommand = new SlashCommandBuilder()
-  .setName('tax')
-  .setDescription('Robux tax calculator')
-  .addIntegerOption(o =>
-    o.setName('jumlah').setRequired(true))
-  .addStringOption(o =>
-    o.setName('mode')
-      .addChoices(
-        { name: 'After Tax', value: 'after' },
-        { name: 'Before Tax', value: 'before' }
-      ).setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('rate').setRequired(true));
+const commands = [
 
-const placeCommand = new SlashCommandBuilder()
-  .setName('placeid')
-  .setDescription('Mengambil place id player')
-  .addStringOption(o =>
-    o.setName('username').setRequired(true));
+  new SlashCommandBuilder()
+    .setName('tax')
+    .setDescription('Robux tax calculator')
+    .addIntegerOption(o =>
+      o.setName('jumlah')
+        .setDescription('Jumlah robux')
+        .setRequired(true))
+    .addStringOption(o =>
+      o.setName('mode')
+        .setDescription('Before / After tax')
+        .addChoices(
+          { name: 'After Tax', value: 'after' },
+          { name: 'Before Tax', value: 'before' }
+        )
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('rate')
+        .setDescription('Harga per robux')
+        .setRequired(true)),
 
-const leaderboardCommand = new SlashCommandBuilder()
-  .setName('leaderboard')
-  .setDescription('Top Spend Robux & Vouch');
+  new SlashCommandBuilder()
+    .setName('leaderboard')
+    .setDescription('Top Spend Robux & Vouch'),
 
-const setCommand = new SlashCommandBuilder()
-  .setName('setleaderboard')
-  .setDescription('Admin only edit')
-  .addUserOption(o =>
-    o.setName('user').setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('robux').setRequired(true))
-  .addIntegerOption(o =>
-    o.setName('vouch').setRequired(true));
+  new SlashCommandBuilder()
+    .setName('setleaderboard')
+    .setDescription('Admin edit leaderboard')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .addUserOption(o =>
+      o.setName('user')
+        .setDescription('Target user')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('robux')
+        .setDescription('Total robux')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('vouch')
+        .setDescription('Total vouch')
+        .setRequired(true))
+
+].map(c => c.toJSON());
 
 /* ================= REGISTER ================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  await rest.put(
-    Routes.applicationCommands(clientId),
-    {
-      body: [
-        taxCommand.toJSON(),
-        placeCommand.toJSON(),
-        leaderboardCommand.toJSON(),
-        setCommand.toJSON()
-      ]
-    }
-  );
+  await rest.put(Routes.applicationCommands(clientId), { body: commands });
 })();
 
 /* ================= READY ================= */
@@ -115,33 +114,32 @@ client.once('ready', () => {
   console.log('✅ Bot Online');
 });
 
-/* ================= AUTO VOUCH (REGEX FIX TOTAL) ================= */
+/* ================= AUTO VOUCH (FULL REGEX) ================= */
 
 const vouchRegex =
-/(vouch|vouc|voc|voch|v0uch|vuch|vouchh|v0c|v0cuh|vouhc)/i;
+/(vouch+|vou?ch|vouc|voc|voch|v0uch|vuch|v0c|vouhc|v0cuh|vo+uc+h+)/i;
 
 function parseRobux(text) {
-  let match = text.match(/(\d+(?:\.\d+)?k?)/i);
-  if (!match) return null;
+  const m = text.match(/(\d+(?:\.\d+)?k?)/i);
+  if (!m) return null;
 
-  let value = match[1].toLowerCase();
-  if (value.includes('k')) return parseFloat(value) * 1000;
-  return parseFloat(value);
+  let val = m[1].toLowerCase();
+  if (val.includes('k')) return parseFloat(val) * 1000;
+  return parseFloat(val);
 }
 
 client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
-  const content = msg.content.toLowerCase();
+  const t = msg.content.toLowerCase();
+  if (!vouchRegex.test(t)) return;
 
-  if (!vouchRegex.test(content)) return;
-
-  const amount = parseRobux(content);
+  const amount = parseRobux(t);
   if (!amount) return;
 
   let robux = amount;
 
-  if (content.includes('after'))
+  if (t.includes('after'))
     robux = Math.ceil(amount / (1 - TAX));
 
   addData(msg.author.id, robux, 1);
@@ -151,16 +149,16 @@ client.on('messageCreate', msg => {
 
 function buildEmbed(page = 0) {
 
-  const list = Object.entries(db)
+  const entries = Object.entries(db)
     .sort((a, b) => b[1].robux - a[1].robux);
 
   const perPage = 10;
-  const pages = Math.ceil(list.length / perPage) || 1;
+  const pages = Math.max(1, Math.ceil(entries.length / perPage));
 
-  const slice = list.slice(page * perPage, page * perPage + perPage);
+  const slice = entries.slice(page * perPage, page * perPage + perPage);
 
-  const totalRobux = list.reduce((a, b) => a + b[1].robux, 0);
-  const totalVouch = list.reduce((a, b) => a + b[1].vouch, 0);
+  const totalRobux = entries.reduce((a, b) => a + b[1].robux, 0);
+  const totalVouch = entries.reduce((a, b) => a + b[1].vouch, 0);
 
   let desc = '';
 
@@ -171,7 +169,7 @@ function buildEmbed(page = 0) {
 
   if (!desc) desc = 'Belum ada data';
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(
@@ -181,16 +179,16 @@ Total Robux : ${format(totalRobux)}
 Total Vouch : ${totalVouch}`
     )
     .setFooter({
-      text: `Nice Blox • Page ${page + 1}/${pages}`,
+      text: `Nice Blox • Cheap & Trusted Roblox store • Page ${page + 1}/${pages}`,
       iconURL: FOOTER_ICON
     });
-
-  return { embed, pages };
 }
 
 /* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async i => {
+
+  if (!i.isChatInputCommand()) return;
 
   /* TAX */
   if (i.commandName === 'tax') {
@@ -227,30 +225,27 @@ Harga : Rp ${format(harga)}`
   if (i.commandName === 'leaderboard') {
 
     let page = 0;
-    const { embed, pages } = buildEmbed(page);
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('prev')
-        .setLabel('Prev')
+        .setLabel('◀ Prev')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('next')
-        .setLabel('Next')
+        .setLabel('Next ▶')
         .setStyle(ButtonStyle.Secondary)
     );
 
     const msg = await i.reply({
-      embeds: [embed],
+      embeds: [buildEmbed(page)],
       components: [row],
       fetchReply: true
     });
 
-    const collector = msg.createMessageComponentCollector({
-      time: 120000
-    });
+    const collector = msg.createMessageComponentCollector({ time: 120000 });
 
-    collector.on('collect', async btn => {
+    collector.on('collect', btn => {
 
       if (btn.user.id !== i.user.id)
         return btn.reply({ content: 'Bukan buat kamu 😆', ephemeral: true });
@@ -258,22 +253,17 @@ Harga : Rp ${format(harga)}`
       if (btn.customId === 'prev') page--;
       if (btn.customId === 'next') page++;
 
+      const maxPage = Math.max(1, Math.ceil(Object.keys(db).length / 10)) - 1;
+
       if (page < 0) page = 0;
-      if (page >= pages) page = pages - 1;
+      if (page > maxPage) page = maxPage;
 
-      const updated = buildEmbed(page);
-
-      btn.update({
-        embeds: [updated.embed]
-      });
+      btn.update({ embeds: [buildEmbed(page)] });
     });
   }
 
   /* ADMIN SET */
   if (i.commandName === 'setleaderboard') {
-
-    if (!i.member.permissions.has('Administrator'))
-      return i.reply({ content: 'Admin only', ephemeral: true });
 
     const user = i.options.getUser('user');
     const robux = i.options.getInteger('robux');
@@ -282,7 +272,7 @@ Harga : Rp ${format(harga)}`
     db[user.id] = { robux, vouch };
     saveDB();
 
-    return i.reply('Updated');
+    return i.reply({ content: '✅ Updated', ephemeral: true });
   }
 
 });

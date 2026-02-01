@@ -60,8 +60,6 @@ function getSmartTime() {
     new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })
   );
 
-  const today = new Date(now.toDateString());
-
   const time = now.toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit'
@@ -70,27 +68,37 @@ function getSmartTime() {
   return `Today at ${time}`;
 }
 
-/* ================= COMMANDS ================= */
+/* ================= COMMANDS (FIXED DESCRIPTION) ================= */
 
 const commands = [
 
   new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Robux tax calculator')
-    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('jumlah')
+        .setDescription('Jumlah robux')
+        .setRequired(true))
     .addStringOption(o =>
       o.setName('mode')
+        .setDescription('Before atau After tax')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }
-        ).setRequired(true))
-    .addIntegerOption(o => o.setName('rate').setRequired(true)),
+        )
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('rate')
+        .setDescription('Harga per robux')
+        .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('placeid')
     .setDescription('Get place id player')
     .addStringOption(o =>
-      o.setName('username').setRequired(true)),
+      o.setName('username')
+        .setDescription('Username Roblox')
+        .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('leaderboard')
@@ -98,10 +106,19 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin only edit')
-    .addUserOption(o => o.setName('user').setRequired(true))
-    .addIntegerOption(o => o.setName('robux').setRequired(true))
-    .addIntegerOption(o => o.setName('vouch').setRequired(true))
+    .setDescription('Admin edit data manual')
+    .addUserOption(o =>
+      o.setName('user')
+        .setDescription('Target user')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('robux')
+        .setDescription('Jumlah robux')
+        .setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('vouch')
+        .setDescription('Jumlah vouch')
+        .setRequired(true))
 
 ].map(c => c.toJSON());
 
@@ -119,7 +136,7 @@ client.once('ready', () => {
   console.log('✅ Bot Online');
 });
 
-/* ================= AUTO VOUCH (REGEX SUPER) ================= */
+/* ================= AUTO VOUCH ================= */
 
 const vouchRegex =
 /(vouch|vouc|voc|voch|v0uch|vuch|vouchh|v0c|vouhc|v0cuh)/i;
@@ -183,115 +200,6 @@ function buildEmbed(page = 0) {
 
   return { embed, pages };
 }
-
-/* ================= INTERACTIONS ================= */
-
-client.on('interactionCreate', async i => {
-
-  /* TAX */
-  if (i.commandName === 'tax') {
-
-    const jumlah = i.options.getInteger('jumlah');
-    const mode = i.options.getString('mode');
-    const rate = i.options.getInteger('rate');
-
-    let gamepass, diterima;
-
-    if (mode === 'before') {
-      gamepass = jumlah;
-      diterima = Math.floor(jumlah * (1 - TAX));
-    } else {
-      diterima = jumlah;
-      gamepass = Math.ceil(jumlah / (1 - TAX));
-    }
-
-    const harga = gamepass * rate;
-
-    return i.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(EMBED_COLOR)
-          .setTitle('Robux Tax Calculator')
-          .setDescription(
-`Gamepass : ${format(gamepass)}
-Diterima : ${format(diterima)}
-Harga : Rp ${format(harga)}`
-          )
-      ]
-    });
-  }
-
-  /* PLACE ID */
-  if (i.commandName === 'placeid') {
-    const user = i.options.getString('username');
-
-    return i.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(EMBED_COLOR)
-          .setTitle('Place ID Found')
-          .setDescription(
-`Username : ${user}
-Place ID : 123456`
-          )
-      ]
-    });
-  }
-
-  /* LEADERBOARD */
-  if (i.commandName === 'leaderboard') {
-
-    let page = 0;
-
-    const { embed, pages } = buildEmbed(page);
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('prev').setLabel('◀ Prev').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('next').setLabel('Next ▶').setStyle(ButtonStyle.Secondary)
-    );
-
-    const msg = await i.reply({
-      embeds: [embed],
-      components: [row],
-      fetchReply: true
-    });
-
-    const collector = msg.createMessageComponentCollector({ time: 120000 });
-
-    collector.on('collect', async btn => {
-
-      if (btn.user.id !== i.user.id)
-        return btn.reply({ content: 'Bukan buat kamu 😆', ephemeral: true });
-
-      if (btn.customId === 'prev') page--;
-      if (btn.customId === 'next') page++;
-
-      if (page < 0) page = 0;
-      if (page >= pages) page = pages - 1;
-
-      const updated = buildEmbed(page);
-
-      btn.update({ embeds: [updated.embed] });
-    });
-  }
-
-  /* ADMIN */
-  if (i.commandName === 'setleaderboard') {
-
-    if (!i.member.permissions.has('Administrator'))
-      return i.reply({ content: 'Admin only', ephemeral: true });
-
-    const user = i.options.getUser('user');
-    const robux = i.options.getInteger('robux');
-    const vouch = i.options.getInteger('vouch');
-
-    db[user.id] = { robux, vouch };
-    saveDB();
-
-    return i.reply('Updated');
-  }
-
-});
 
 /* ================= LOGIN ================= */
 

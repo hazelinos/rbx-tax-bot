@@ -26,38 +26,6 @@ function getTime() {
   }).format(new Date());
 }
 
-function buildEmbed(page = 0) {
-
-  const db = loadDB();
-
-  const list = Object.entries(db)
-    .sort((a, b) => b[1].robux - a[1].robux);
-
-  const perPage = 10;
-  const pages = Math.max(1, Math.ceil(list.length / perPage));
-
-  const slice = list.slice(page * perPage, page * perPage + perPage);
-
-  let desc = '';
-
-  slice.forEach(([id, data], i) => {
-    const rank = String(i + 1 + page * perPage).padStart(2, '0');
-    desc += `${rank} — <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
-  });
-
-  if (!desc) desc = 'Belum ada data';
-
-  const embed = new EmbedBuilder()
-    .setColor(COLOR)
-    .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
-    .setDescription(desc)
-    .setFooter({
-      text: `Nice Blox • Page ${page + 1}/${pages} | Today ${getTime()}`
-    });
-
-  return { embed, pages };
-}
-
 module.exports = {
 
   data: new SlashCommandBuilder()
@@ -66,19 +34,49 @@ module.exports = {
 
   async execute(i) {
 
+    /* ⭐ WAJIB biar gak timeout */
+    await i.deferReply();
+
+    const db = loadDB();
+
+    const list = Object.entries(db)
+      .sort((a, b) => b[1].robux - a[1].robux);
+
+    const perPage = 10;
+    const pages = Math.max(1, Math.ceil(list.length / perPage));
+
     let page = 0;
 
-    const { embed, pages } = buildEmbed(page);
+    function build(page) {
+
+      const slice = list.slice(page * perPage, page * perPage + perPage);
+
+      let desc = '';
+
+      slice.forEach(([id, data], idx) => {
+        const rank = String(idx + 1 + page * perPage).padStart(2, '0');
+        desc += `${rank} — <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
+      });
+
+      if (!desc) desc = 'Belum ada data';
+
+      return new EmbedBuilder()
+        .setColor(COLOR)
+        .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
+        .setDescription(desc)
+        .setFooter({
+          text: `Nice Blox • Page ${page + 1}/${pages} | Today ${getTime()}`
+        });
+    }
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('prev').setLabel('◀').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('next').setLabel('▶').setStyle(ButtonStyle.Secondary)
     );
 
-    const msg = await i.reply({
-      embeds: [embed],
-      components: [row],
-      fetchReply: true
+    const msg = await i.editReply({
+      embeds: [build(page)],
+      components: [row]
     });
 
     const collector = msg.createMessageComponentCollector({ time: 120000 });
@@ -94,7 +92,7 @@ module.exports = {
       if (page < 0) page = 0;
       if (page >= pages) page = pages - 1;
 
-      btn.update({ embeds: [buildEmbed(page).embed] });
+      btn.update({ embeds: [build(page)] });
     });
   }
 };

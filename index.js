@@ -7,14 +7,15 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
-  ButtonStyle
+  ButtonStyle,
+  PermissionFlagsBits
 } = require('discord.js');
 
-/* ===== FIX FETCH (WAJIB BIAR RAILWAY GA CRASH) ===== */
+const fs = require('fs');
+
+/* ✅ WAJIB biar fetch ga crash di Railway */
 const fetch = (...args) =>
   import('node-fetch').then(({ default: fetch }) => fetch(...args));
-
-const fs = require('fs');
 
 /* ================= CONFIG ================= */
 
@@ -27,7 +28,7 @@ const EMBED_COLOR = 0x1F6FEB;
 const FOOTER_ICON =
   'https://cdn.discordapp.com/attachments/1449386611036127343/1467515005825187972/20260107_131913.png';
 
-const format = n => n.toLocaleString('id-ID');
+const format = n => Number(n).toLocaleString('id-ID');
 
 /* ================= CLIENT ================= */
 
@@ -59,7 +60,7 @@ function addData(id, robux, vouch = 1) {
 
 /* ================= WIB TIME ================= */
 
-function getTimeWIB() {
+function getSmartTime() {
   return new Date().toLocaleString('id-ID', {
     timeZone: 'Asia/Jakarta',
     hour: '2-digit',
@@ -95,7 +96,8 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('setleaderboard')
-    .setDescription('Admin only edit')
+    .setDescription('Admin edit leaderboard manually')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addUserOption(o => o.setName('user').setRequired(true))
     .addIntegerOption(o => o.setName('robux').setRequired(true))
     .addIntegerOption(o => o.setName('vouch').setRequired(true))
@@ -119,7 +121,7 @@ client.once('ready', () => {
 /* ================= AUTO VOUCH ================= */
 
 const vouchRegex =
-/(vouch|voc|vouc|voch|vuch|v0uch|v0c|vouhc|v0cuh)/i;
+/(vouch|vouc|voc|voch|v0uch|vuch|vouchh|vouhc|v0cuh)/i;
 
 function parseRobux(text) {
   const match = text.match(/(\d+(?:\.\d+)?k?)/i);
@@ -156,7 +158,7 @@ function buildEmbed(page = 0) {
     .sort((a, b) => b[1].robux - a[1].robux);
 
   const perPage = 10;
-  const pages = Math.ceil(list.length / perPage) || 1;
+  const pages = Math.max(1, Math.ceil(list.length / perPage));
 
   const slice = list.slice(page * perPage, page * perPage + perPage);
 
@@ -169,16 +171,14 @@ function buildEmbed(page = 0) {
 
   if (!desc) desc = 'Belum ada data';
 
-  const embed = new EmbedBuilder()
+  return new EmbedBuilder()
     .setColor(EMBED_COLOR)
     .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
     .setDescription(desc)
     .setFooter({
-      text: `Nice Blox • Page ${page + 1}/${pages} | Today ${getTimeWIB()}`,
+      text: `Nice Blox • Page ${page + 1}/${pages} | ${getSmartTime()}`,
       iconURL: FOOTER_ICON
     });
-
-  return { embed, pages };
 }
 
 /* ================= INTERACTIONS ================= */
@@ -187,8 +187,9 @@ client.on('interactionCreate', async i => {
 
   if (!i.isChatInputCommand()) return;
 
-  /* TAX */
+  /* ===== TAX ===== */
   if (i.commandName === 'tax') {
+
     const jumlah = i.options.getInteger('jumlah');
     const mode = i.options.getString('mode');
     const rate = i.options.getInteger('rate');
@@ -219,7 +220,7 @@ Harga : Rp ${format(harga)}`
     });
   }
 
-  /* ===== PLACEID (VERSI LAMA WORKING) ===== */
+  /* ===== PLACEID (REAL API) ===== */
   if (i.commandName === 'placeid') {
 
     await i.deferReply();
@@ -243,23 +244,23 @@ Harga : Rp ${format(harga)}`
         return i.editReply('User tidak ditemukan.');
 
       const gameRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=Public&limit=50`
+        `https://games.roblox.com/v2/users/${userId}/games?limit=1`
       );
 
       const gameData = await gameRes.json();
+      const placeId = gameData.data?.[0]?.rootPlaceId ?? 'Tidak ditemukan';
 
-      const game = gameData.data?.find(g => g.rootPlace?.id);
-      const placeId = game?.rootPlace?.id ?? 'Tidak ditemukan';
-
-      const embed = new EmbedBuilder()
-        .setColor(EMBED_COLOR)
-        .setTitle(`Place ID milik ${username} :`)
-        .setDescription(`\`\`\`\n${placeId}\n\`\`\``);
-
-      return i.editReply({ embeds: [embed] });
+      return i.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(EMBED_COLOR)
+            .setTitle(`Place ID milik ${username} :`)
+            .setDescription(`\`\`\`\n${placeId}\n\`\`\``)
+        ]
+      });
 
     } catch {
-      return i.editReply('Gagal mengambil data Roblox.');
+      return i.editReply('Gagal ambil data Roblox');
     }
   }
 

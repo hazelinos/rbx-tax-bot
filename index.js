@@ -7,7 +7,7 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-global.fetch = fetch;
+const fetch = require('node-fetch'); // ✅ anti crash
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
@@ -22,32 +22,38 @@ const BLUE = 0x1F6FEB;
 const format = n => n.toLocaleString('id-ID');
 
 
+
 /* ================= COMMANDS ================= */
 
-const taxCommand = new SlashCommandBuilder()
-  .setName('tax')
-  .setDescription('Robux tax calculator')
-  .addIntegerOption(o => o.setName('jumlah').setRequired(true))
-  .addStringOption(o =>
-    o.setName('mode')
-      .addChoices(
-        { name: 'After Tax', value: 'after' },
-        { name: 'Before Tax', value: 'before' }
-      )
-      .setRequired(true))
-  .addIntegerOption(o => o.setName('rate').setRequired(true));
+const commands = [
+
+  new SlashCommandBuilder()
+    .setName('tax')
+    .setDescription('Robux tax calculator')
+    .addIntegerOption(o => o.setName('jumlah').setRequired(true))
+    .addStringOption(o =>
+      o.setName('mode')
+        .addChoices(
+          { name: 'After Tax', value: 'after' },
+          { name: 'Before Tax', value: 'before' }
+        )
+        .setRequired(true))
+    .addIntegerOption(o => o.setName('rate').setRequired(true)),
 
 
-const placeCommand = new SlashCommandBuilder()
-  .setName('placeid')
-  .setDescription('Mengambil place id player')
-  .addStringOption(o => o.setName('username').setRequired(true));
+
+  new SlashCommandBuilder()
+    .setName('placeid')
+    .setDescription('Mengambil place id player')
+    .addStringOption(o => o.setName('username').setRequired(true)),
 
 
-const passCommand = new SlashCommandBuilder()
-  .setName('gamepass')
-  .setDescription('Mengambil semua gamepas player')
-  .addStringOption(o => o.setName('username').setRequired(true));
+  new SlashCommandBuilder()
+    .setName('gamepass')
+    .setDescription('Mengambil semua gamepas player')
+    .addStringOption(o => o.setName('username').setRequired(true))
+
+];
 
 
 
@@ -58,11 +64,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 (async () => {
   await rest.put(
     Routes.applicationCommands(clientId),
-    { body: [
-      taxCommand.toJSON(),
-      placeCommand.toJSON(),
-      passCommand.toJSON()
-    ]}
+    { body: commands.map(c => c.toJSON()) }
   );
 })();
 
@@ -84,6 +86,7 @@ async function getUserId(username) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ usernames: [username] })
   });
+
   const data = await res.json();
   return data.data?.[0]?.id;
 }
@@ -98,7 +101,6 @@ async function getUserGames(userId) {
 }
 
 
-/* 🔥 FIX UTAMA DI SINI */
 async function getUniverseId(placeId) {
   const res = await fetch(
     `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeId}`
@@ -121,11 +123,12 @@ async function getGamepasses(universeId) {
 /* ================= INTERACTION ================= */
 
 client.on('interactionCreate', async interaction => {
+
   if (!interaction.isChatInputCommand()) return;
 
 
 
-  /* ================= TAX ================= */
+  /* ===== TAX ===== */
 
   if (interaction.commandName === 'tax') {
 
@@ -137,10 +140,10 @@ client.on('interactionCreate', async interaction => {
 
     if (mode === 'before') {
       gamepass = jumlah;
-      diterima = Math.floor(jumlah * (1 - TAX));
+      diterima = Math.floor(jumlah * 0.7);
     } else {
       diterima = jumlah;
-      gamepass = Math.ceil(jumlah / (1 - TAX));
+      gamepass = Math.ceil(jumlah / 0.7);
     }
 
     const harga = gamepass * rate;
@@ -161,7 +164,7 @@ Rate ${rate}`
 
 
 
-  /* ================= PLACE ID ================= */
+  /* ===== PLACE ID ===== */
 
   if (interaction.commandName === 'placeid') {
 
@@ -170,6 +173,8 @@ Rate ${rate}`
     const username = interaction.options.getString('username');
 
     const userId = await getUserId(username);
+    if (!userId) return interaction.editReply('User tidak ditemukan.');
+
     const games = await getUserGames(userId);
 
     const placeId = games.find(g => g.rootPlace?.id)?.rootPlace?.id;
@@ -184,7 +189,7 @@ Rate ${rate}`
 
 
 
-  /* ================= GAMEPASS (FIXED) ================= */
+  /* ===== GAMEPASS (FIXED UNIVERSE METHOD) ===== */
 
   if (interaction.commandName === 'gamepass') {
 
@@ -193,11 +198,14 @@ Rate ${rate}`
     const username = interaction.options.getString('username');
 
     const userId = await getUserId(username);
+    if (!userId) return interaction.editReply('User tidak ditemukan.');
+
     const games = await getUserGames(userId);
 
     let allPasses = [];
 
     for (const g of games) {
+
       const placeId = g.rootPlace?.id;
       if (!placeId) continue;
 

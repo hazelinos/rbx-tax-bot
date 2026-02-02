@@ -1,91 +1,54 @@
 // ===============================
-// IMPORTS
+// IMPORT
 // ===============================
 
 const {
   Client,
   GatewayIntentBits,
-  EmbedBuilder
+  Collection
 } = require("discord.js");
 
 const fs = require("fs");
-const path = require("path");
 const express = require("express");
 
 
 // ===============================
-// 🌐 RAILWAY KEEP ALIVE (WAJIB)
+// RAILWAY WEB (ANTI SLEEP)
 // ===============================
 
 const app = express();
 
 app.get("/", (req, res) => {
-  res.send("Bot is alive!");
+  res.send("Bot Alive");
 });
 
 app.listen(process.env.PORT || 3000, () => {
-  console.log("🌐 Web server running (anti sleep Railway)");
+  console.log("🌐 Web server running");
 });
 
 
 // ===============================
-// DISCORD CLIENT
+// CLIENT
 // ===============================
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
-
-// ===============================
-// FILE SETUP
-// ===============================
-
-const dataDir = path.join(__dirname, "data");
-const leaderboardPath = path.join(dataDir, "leaderboard.json");
-
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
-
-if (!fs.existsSync(leaderboardPath)) {
-  fs.writeFileSync(leaderboardPath, JSON.stringify({}, null, 2));
-}
+client.commands = new Collection();
 
 
 // ===============================
-// LOAD + SAVE
+// LOAD COMMANDS FOLDER
 // ===============================
 
-let leaderboard = JSON.parse(fs.readFileSync(leaderboardPath));
+const commandFiles = fs
+  .readdirSync("./commands")
+  .filter(file => file.endsWith(".js"));
 
-function saveData() {
-  fs.writeFileSync(leaderboardPath, JSON.stringify(leaderboard, null, 2));
-}
-
-
-// ===============================
-// 💾 AUTO BACKUP 30 DETIK
-// ===============================
-
-setInterval(() => {
-  saveData();
-  console.log("💾 Auto backup leaderboard saved");
-}, 30000);
-
-
-// ===============================
-// WIB TIME
-// ===============================
-
-function getWIB() {
-  return new Date().toLocaleTimeString("id-ID", {
-    timeZone: "Asia/Jakarta",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
 }
 
 
@@ -99,73 +62,27 @@ client.once("clientReady", () => {
 
 
 // ===============================
-// COMMANDS
+// SLASH HANDLER
 // ===============================
 
-client.on("messageCreate", async (msg) => {
-  if (msg.author.bot) return;
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand()) return;
 
-  const args = msg.content.split(" ");
+  const command = client.commands.get(interaction.commandName);
 
+  if (!command) return;
 
-  // =========================
-  // !add @user robux vouch
-  // =========================
+  try {
+    await command.execute(interaction);
+  } catch (err) {
+    console.error(err);
 
-  if (args[0] === "!add") {
-    const user = msg.mentions.users.first();
-    const robux = parseInt(args[2]) || 0;
-    const vouch = parseInt(args[3]) || 0;
-
-    if (!user) return msg.reply("Tag user dulu bro.");
-
-    if (!leaderboard[user.id]) {
-      leaderboard[user.id] = {
-        robux: 0,
-        vouch: 0
-      };
-    }
-
-    leaderboard[user.id].robux += robux;
-    leaderboard[user.id].vouch += vouch;
-
-    saveData();
-
-    return msg.reply("✅ Data berhasil ditambah!");
-  }
-
-
-  // =========================
-  // !leaderboard
-  // =========================
-
-  if (args[0] === "!leaderboard") {
-
-    const sorted = Object.entries(leaderboard)
-      .sort((a, b) => b[1].robux - a[1].robux);
-
-    if (sorted.length === 0)
-      return msg.reply("Belum ada data");
-
-    let text = "";
-    let i = 1;
-
-    for (const [id, data] of sorted.slice(0, 10)) {
-      const user = await client.users.fetch(id);
-
-      text += `${i}. @${user.username} • ${data.robux} Robux • ${data.vouch} Vouch\n`;
-      i++;
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor("#2b2d31")
-      .setTitle("━━━ ✦ Top Spend Robux & Vouch ✦ ━━━")
-      .setDescription(text)
-      .setFooter({
-        text: `Nice Blox • Page 1/1 | Today ${getWIB()}`
+    if (!interaction.replied) {
+      await interaction.reply({
+        content: "Error command",
+        ephemeral: true
       });
-
-    return msg.channel.send({ embeds: [embed] });
+    }
   }
 });
 

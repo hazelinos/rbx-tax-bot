@@ -20,9 +20,33 @@ module.exports = {
 
     try {
 
-      /* ============================= */
-      /* USERNAME -> USERID */
-      /* ============================= */
+      /* ========================= */
+      /* 🔥 1. CEK COOKIE VALID */
+      /* ========================= */
+
+      const authCheck = await fetch(
+        'https://users.roblox.com/v1/users/authenticated',
+        {
+          headers: {
+            Cookie: `.ROBLOSECURITY=${cookie}`
+          }
+        }
+      );
+
+      if (!authCheck.ok) {
+        return interaction.editReply(
+          '❌ Cookie Roblox tidak valid / expired\nLogin ulang & ambil cookie baru'
+        );
+      }
+
+      const authData = await authCheck.json();
+      console.log("COOKIE VALID → LOGIN AS:", authData.name);
+
+
+
+      /* ========================= */
+      /* 🔥 2. USERNAME -> USERID */
+      /* ========================= */
 
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
@@ -36,15 +60,14 @@ module.exports = {
       const userData = await userRes.json();
       const userId = userData.data?.[0]?.id;
 
-      console.log("USER:", username, "ID:", userId);
-
       if (!userId)
         return interaction.editReply('❌ User tidak ditemukan');
 
 
-      /* ============================= */
-      /* USERID -> GAMES */
-      /* ============================= */
+
+      /* ========================= */
+      /* 🔥 3. USER GAMES */
+      /* ========================= */
 
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=10`,
@@ -57,26 +80,24 @@ module.exports = {
 
       const gameData = await gameRes.json();
 
-      console.log("GAMES:", gameData);
-
       if (!gameData.data?.length)
         return interaction.editReply('❌ User tidak punya game sendiri');
 
 
-      /* ============================= */
-      /* ambil UNIVERSE ID yg BENAR */
-      /* ============================= */
+
+      /* ========================= */
+      /* 🔥 4. AMBIL UNIVERSE ID */
+      /* ========================= */
 
       const universeId =
         gameData.data[0].rootPlaceId ||
         gameData.data[0].id;
 
-      console.log("UNIVERSE:", universeId);
 
 
-      /* ============================= */
-      /* UNIVERSE -> GAMEPASSES */
-      /* ============================= */
+      /* ========================= */
+      /* 🔥 5. AMBIL GAMEPASS */
+      /* ========================= */
 
       const passRes = await fetch(
         `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=50`,
@@ -89,34 +110,25 @@ module.exports = {
 
       const passData = await passRes.json();
 
-      console.log("PASSES:", passData);
-
-
       if (!passData.data?.length)
         return interaction.editReply('❌ Gamepass tidak ditemukan');
 
 
-      /* ============================= */
-      /* BUILD TEXT */
-      /* ============================= */
+
+      /* ========================= */
+      /* 🔥 6. OUTPUT */
+      /* ========================= */
 
       let text = '';
 
       passData.data.slice(0, 10).forEach(p => {
-        text += `• **${p.name}** — ${p.price ?? 0} Robux\n`;
+        text += `• ${p.name} — ${p.price ?? 0} Robux\n`;
       });
-
-
-      /* ============================= */
-      /* EMBED */
-      /* ============================= */
 
       const embed = new EmbedBuilder()
         .setColor(0x1F6FEB)
-        .setTitle(`🎮 Gamepass milik ${username}`)
-        .setDescription(text)
-        .setFooter({ text: 'Nice Blox System' });
-
+        .setTitle(`Gamepass ${username}`)
+        .setDescription(text);
 
       interaction.editReply({ embeds: [embed] });
 

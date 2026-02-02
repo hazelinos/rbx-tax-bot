@@ -7,9 +7,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('gamepass')
     .setDescription('Cari semua gamepass dari username Roblox')
-    .addStringOption(option =>
-      option
-        .setName('username')
+    .addStringOption(o =>
+      o.setName('username')
         .setDescription('Username Roblox')
         .setRequired(true)
     ),
@@ -23,75 +22,77 @@ module.exports = {
     try {
 
       /* ================= USERNAME -> USERID ================= */
-      const userRes = await fetch(
+      const userRes = await axios.post(
         'https://users.roblox.com/v1/usernames/users',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usernames: [username] })
-        }
+        { usernames: [username] }
       );
 
-      const userData = await userRes.json();
-      const userId = userData.data?.[0]?.id;
+      const userId = userRes.data.data?.[0]?.id;
 
       if (!userId)
         return interaction.editReply('❌ User tidak ditemukan');
 
 
-      /* ================= SCRAPE INVENTORY PAGE ================= */
-      const url = `https://www.roblox.com/users/${userId}/inventory#!/game-passes`;
+      /* ================= USERID -> GAME LIST ================= */
+      const gamesRes = await axios.get(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=10`
+      );
 
-      const { data: html } = await axios.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0'
-        }
-      });
+      const universeId = gamesRes.data.data?.[0]?.id;
+
+      if (!universeId)
+        return interaction.editReply('❌ User tidak punya game');
+
+
+      /* ================= SCRAPE STORE PAGE ================= */
+      const url = `https://www.roblox.com/games/${universeId}`;
+
+      const html = (await axios.get(url)).data;
 
       const $ = cheerio.load(html);
 
       const passes = [];
 
       $('a[href*="/game-pass/"]').each((i, el) => {
+        const href = $(el).attr('href');
 
-        const link = $(el).attr('href');
-        const name = $(el).text().trim();
-
-        const idMatch = link.match(/game-pass\/(\d+)/);
-
+        const idMatch = href.match(/game-pass\/(\d+)/);
         if (!idMatch) return;
 
         const id = idMatch[1];
+        const name = $(el).text().trim();
+
+        const priceMatch = name.match(/\d+/);
+        const price = priceMatch ? priceMatch[0] : '?';
 
         passes.push({
           id,
-          name: name || 'Gamepass',
-          url: `https://www.roblox.com${link}`
+          name,
+          price
         });
       });
 
-
       if (!passes.length)
-        return interaction.editReply('❌ Tidak ada gamepass');
+        return interaction.editReply('❌ Tidak ada gamepass ditemukan');
 
 
+      /* ================= FORMAT ================= */
       let text = '';
 
       passes.slice(0, 20).forEach(p => {
-        text += `• **${p.name}**\nID: \`${p.id}\`\n${p.url}\n\n`;
+        text += `🎟 **${p.name}** — ${p.price} Robux\nID: ${p.id}\nhttps://www.roblox.com/game-pass/${p.id}\n\n`;
       });
-
 
       const embed = new EmbedBuilder()
         .setColor(0x00ff99)
-        .setTitle(`🎟 Gamepass milik ${username}`)
+        .setTitle(`Gamepass milik ${username}`)
         .setDescription(text);
 
       interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
-      console.error(err);
-      interaction.editReply('❌ Error scraping');
+      console.log(err);
+      interaction.editReply('❌ Error ambil gamepass');
     }
   }
 };

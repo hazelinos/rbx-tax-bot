@@ -4,10 +4,9 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('Ambil semua gamepass milik user Roblox')
+    .setDescription('Ambil gamepass dari store game user')
     .addStringOption(o =>
       o.setName('username')
-        .setDescription('Username roblox')
         .setRequired(true)
     ),
 
@@ -19,7 +18,7 @@ module.exports = {
 
     try {
 
-      /* ================= username -> userId ================= */
+      /* username -> userId */
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -33,24 +32,36 @@ module.exports = {
       const userId = userData.data?.[0]?.id;
 
       if (!userId)
-        return interaction.editReply('❌ User tidak ditemukan');
+        return interaction.editReply('User tidak ditemukan');
 
 
-      /* ================= INVENTORY API (🔥 WORK ALWAYS) ================= */
-      const invRes = await fetch(
-        `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=100`
+      /* user -> games */
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=10`
       );
 
-      const invData = await invRes.json();
+      const gameData = await gameRes.json();
+      const universeId = gameData.data?.[0]?.id;
 
-      if (!invData.data?.length)
+      if (!universeId)
+        return interaction.editReply('User tidak punya game');
+
+
+      /* 🔥 STORE PASS API (INI YANG BENER) */
+      const passRes = await fetch(
+        `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
+      );
+
+      const passData = await passRes.json();
+
+      if (!passData.data?.length)
         return interaction.editReply('❌ Tidak ada gamepass');
 
 
       let text = '';
 
-      invData.data.forEach(p => {
-        text += `• **${p.name}** — ${p.price} Robux\nhttps://www.roblox.com/game-pass/${p.assetId}\n\n`;
+      passData.data.forEach(p => {
+        text += `• **${p.name}** — ${p.price} Robux\nhttps://www.roblox.com/game-pass/${p.id}\n\n`;
       });
 
 

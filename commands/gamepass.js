@@ -4,10 +4,10 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('Cari semua gamepass dari username roblox')
+    .setDescription('List semua gamepass milik user Roblox')
     .addStringOption(o =>
       o.setName('username')
-       .setDescription('Username Roblox') // 🔥 WAJIB
+       .setDescription('Username Roblox')
        .setRequired(true)
     ),
 
@@ -17,9 +17,6 @@ module.exports = {
 
     const username = interaction.options.getString('username');
     const cookie = process.env.ROBLOX_COOKIE;
-
-    if (!cookie)
-      return interaction.editReply('❌ ROBLOX_COOKIE belum diset di Railway');
 
     try {
 
@@ -68,29 +65,32 @@ module.exports = {
         return interaction.editReply('❌ Gamepass tidak ditemukan');
 
 
-      /* ================= FORMAT OUTPUT ================= */
+      /* ================= FORMAT ================= */
       let text = '';
 
       passData.data.slice(0, 20).forEach(p => {
+
         text +=
-`🆔 **${p.id}**
-🎟 **${p.name}**
+`🎟 **${p.name}**
 💰 ${p.price} Robux
-🔗 https://www.roblox.com/game-pass/${p.id}
+🆔 ${p.id}
+🔗 https://www.roblox.com/id/game-pass/${p.id}
 
 `;
       });
 
+
       const embed = new EmbedBuilder()
         .setColor(0x00ff99)
-        .setTitle(`🎟 Gamepass milik ${username}`)
-        .setDescription(text);
+        .setTitle(`🎮 Gamepass milik ${username}`)
+        .setDescription(text)
+        .setFooter({ text: `Total: ${passData.data.length} gamepass` });
 
       interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
       console.log(err);
-      interaction.editReply('❌ Error ambil data roblox');
+      interaction.editReply('❌ Error ambil data Roblox');
     }
   }
 };

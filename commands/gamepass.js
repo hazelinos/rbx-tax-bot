@@ -1,12 +1,10 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const axios = require('axios');
-const cheerio = require('cheerio');
+const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('Cari semua gamepass dari username Roblox')
+    .setDescription('List semua gamepass dari username')
     .addStringOption(o =>
       o.setName('username')
         .setDescription('Username Roblox')
@@ -20,68 +18,64 @@ module.exports = {
     try {
 
       const username = interaction.options.getString('username');
+      const cookie = process.env.ROBLOX_COOKIE;
 
-      /* USERNAME -> USERID */
-      const userRes = await axios.post(
+      if (!cookie)
+        return interaction.editReply('❌ ROBLOX_COOKIE belum di set');
+
+      /* username -> userId */
+      const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
-        { usernames: [username] }
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernames: [username] })
+        }
       );
 
-      const userId = userRes.data.data?.[0]?.id;
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
 
       if (!userId)
         return interaction.editReply('❌ User tidak ditemukan');
 
 
-      /* USERID -> GAMES */
-      const gamesRes = await axios.get(
+      /* user -> universe */
+      const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=10`
       );
 
-      const universeId = gamesRes.data.data?.[0]?.id;
+      const gameData = await gameRes.json();
+      const universeId = gameData.data?.[0]?.id;
 
       if (!universeId)
         return interaction.editReply('❌ User tidak punya game');
 
 
-      /* SCRAPE STORE */
-      const page = await axios.get(`https://www.roblox.com/games/${universeId}`);
+      /* 🔥 CREATOR API (PRIVATE PASSES KEDETEK) */
+      const passRes = await fetch(
+        `https://develop.roblox.com/v1/universes/${universeId}/game-passes?limit=100`,
+        {
+          headers: {
+            Cookie: `.ROBLOSECURITY=${cookie}`
+          }
+        }
+      );
 
-      const $ = cheerio.load(page.data);
+      const passData = await passRes.json();
 
-      const passes = [];
+      if (!passData.data?.length)
+        return interaction.editReply('❌ Tidak ada gamepass');
 
-      $('a[href*="/game-pass/"]').each((i, el) => {
-        const href = $(el).attr('href');
 
-        const idMatch = href.match(/game-pass\/(\d+)/);
-        if (!idMatch) return;
+      /* ===== FORMAT KAYAK SCREENSHOT ===== */
+      let text = `Semua gamepass milik ${username}\n\n`;
 
-        const id = idMatch[1];
-        const name = $(el).text().trim();
-
-        passes.push({
-          id,
-          name
-        });
+      passData.data.forEach(p => {
+        text += `Gamepass, ${p.price} Robux, ${p.id}\n`;
       });
 
-      if (!passes.length)
-        return interaction.editReply('❌ Tidak ada gamepass ditemukan');
-
-
-      let text = '';
-
-      passes.forEach(p => {
-        text += `🎟 ${p.name}\nID: ${p.id}\nhttps://www.roblox.com/game-pass/${p.id}\n\n`;
-      });
-
-      const embed = new EmbedBuilder()
-        .setColor(0x00ff99)
-        .setTitle(`Gamepass milik ${username}`)
-        .setDescription(text);
-
-      interaction.editReply({ embeds: [embed] });
+      interaction.editReply(text);
 
     } catch (err) {
       console.log(err);

@@ -82,7 +82,7 @@ function getWIB() {
 // READY
 // ============================================
 
-client.once("ready", () => {
+client.once("clientReady", () => {
   console.log(`✅ Login sebagai ${client.user.tag}`);
 });
 

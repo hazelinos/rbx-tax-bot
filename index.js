@@ -1,21 +1,24 @@
-/* ================= IMPORT ================= */
+process.env.TZ = 'Asia/Jakarta';
 
 const {
   Client,
   GatewayIntentBits,
   Collection,
-  REST,
-  Routes
+  Events
 } = require('discord.js');
 
 const fs = require('fs');
 const path = require('path');
+const backup = require('./utils/backup');
 
-const token = process.env.TOKEN;
-const clientId = process.env.CLIENT_ID;
+const TOKEN = process.env.TOKEN;
 
+const VOUCH_CHANNEL = '1448898315411259424';
 
-/* ================= CLIENT ================= */
+const DB_FILE = path.join(__dirname, 'data/leaderboard.json');
+
+if (!fs.existsSync('./data')) fs.mkdirSync('./data');
+if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
 
 const client = new Client({
   intents: [
@@ -27,167 +30,72 @@ const client = new Client({
 
 client.commands = new Collection();
 
+/* ================= COMMAND LOAD ================= */
 
-/* ================= SAFE DATA FOLDER ================= */
+const commandFiles = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
 
-const DATA_DIR = path.join(__dirname, 'data');
-const DB_FILE = path.join(DATA_DIR, 'leaderboard.json');
-
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
-
-
-/* ================= LOAD COMMAND FILES ================= */
-
-const commands = [];
-const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
-
-for (const file of files) {
-  const cmd = require(`./commands/${file}`);
-  client.commands.set(cmd.data.name, cmd);
-  commands.push(cmd.data.toJSON());
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+  client.commands.set(command.data.name, command);
 }
 
-
-/* ================= REGISTER SLASH ================= */
-
-const rest = new REST({ version: '10' }).setToken(token);
-
-(async () => {
-  await rest.put(Routes.applicationCommands(clientId), { body: commands });
-  console.log('✅ Slash commands registered');
-})();
-
-
-/* ================= READY ================= */
-
-client.once('clientReady', () => {
-  console.log(`✅ Bot online: ${client.user.tag}`);
-});
-
-
-/* ================= SLASH HANDLER ================= */
-
-client.on('interactionCreate', async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const cmd = client.commands.get(interaction.commandName);
-  if (!cmd) return;
-
-  try {
-    await cmd.execute(interaction);
-  } catch (err) {
-    console.log(err);
-
-    if (!interaction.replied)
-      interaction.reply({ content: '❌ Error', ephemeral: true });
-  }
-});
-
-
-/* ===================================================== */
-/* ================= AUTO VOUCH FINAL =================== */
-/* ===================================================== */
-
-const TAX_RATE = 0.7;
-
-/* 🔥 channel khusus vouch */
-const VOUCH_CHANNEL_ID = '1448898315411259424';
-
-const vouchRegex =
-/(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
-
-
-/* ---------- DB ---------- */
-
-function loadDB() {
-  return JSON.parse(fs.readFileSync(DB_FILE));
-}
+/* ================= SAVE FUNCTION ================= */
 
 function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  backup(); // 🔥 auto backup tiap save
 }
 
+/* ================= READY ================= */
 
-/* ---------- PARSE NUMBER ---------- */
+client.once(Events.ClientReady, () => {
+  console.log(`✅ Login sebagai ${client.user.tag}`);
 
-function parseAmount(text) {
-  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
-  if (!match) return 1;
+  // backup tiap 5 menit (extra aman)
+  setInterval(() => {
+    backup();
+  }, 5 * 60 * 1000);
+});
 
-  let val = match[1].toLowerCase();
+/* ================= VOUCH LISTENER ================= */
 
-  if (val.includes('k')) return parseFloat(val) * 1000;
+client.on(Events.MessageCreate, message => {
+  if (message.author.bot) return;
 
-  return parseFloat(val);
-}
+  if (message.channel.id !== VOUCH_CHANNEL) return;
 
+  const db = JSON.parse(fs.readFileSync(DB_FILE));
 
-/* ================= ADD VOUCH ================= */
+  const id = message.author.id;
 
-client.on('messageCreate', msg => {
-  if (msg.author.bot) return;
-  if (msg.channel.id !== VOUCH_CHANNEL_ID) return;
-
-  const text = msg.content.toLowerCase();
-  if (!vouchRegex.test(text)) return;
-
-  let amount = parseAmount(text);
-
-  if (text.includes('after'))
-    amount = Math.ceil(amount / TAX_RATE);
-
-  const db = loadDB();
-
-  if (!db[msg.author.id]) {
-    db[msg.author.id] = {
+  if (!db[id]) {
+    db[id] = {
       robux: 0,
-      vouch: 0,
-      logs: []
+      vouch: 0
     };
   }
 
-  db[msg.author.id].robux += amount;
-  db[msg.author.id].vouch += 1;
-
-  db[msg.author.id].logs.push({
-    messageId: msg.id,
-    amount
-  });
+  db[id].vouch += 1;
 
   saveDB(db);
-
-  console.log(`+${amount} robux → ${msg.author.tag}`);
 });
 
+/* ================= SLASH COMMAND ================= */
 
-/* ================= DELETE = AUTO MINUS ================= */
+client.on(Events.InteractionCreate, async interaction => {
+  if (!interaction.isChatInputCommand()) return;
 
-client.on('messageDelete', msg => {
-  if (!msg.author) return;
-  if (msg.channel.id !== VOUCH_CHANNEL_ID) return;
+  const command = client.commands.get(interaction.commandName);
 
-  const db = loadDB();
-  const user = db[msg.author.id];
+  if (!command) return;
 
-  if (!user || !user.logs) return;
-
-  const index = user.logs.findIndex(x => x.messageId === msg.id);
-  if (index === -1) return;
-
-  const amount = user.logs[index].amount;
-
-  user.robux -= amount;
-  user.vouch -= 1;
-
-  user.logs.splice(index, 1);
-
-  saveDB(db);
-
-  console.log(`-${amount} robux (deleted)`);
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+  }
 });
-
 
 /* ================= LOGIN ================= */
 
-client.login(token);
+client.login(TOKEN);

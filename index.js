@@ -9,11 +9,14 @@ const {
 } = require('discord.js');
 
 const fs = require('fs');
+const path = require('path');
+
 
 /* ================= ENV ================= */
 
 const token = process.env.TOKEN;
 const clientId = process.env.CLIENT_ID;
+
 
 /* ================= CLIENT ================= */
 
@@ -27,25 +30,40 @@ const client = new Client({
 
 client.commands = new Collection();
 
+
 /* ================= LOAD COMMAND FILES ================= */
 
 const commands = [];
-const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
 
-for (const file of files) {
-  const cmd = require(`./commands/${file}`);
-  client.commands.set(cmd.data.name, cmd);
-  commands.push(cmd.data.toJSON());
+const commandFiles = fs
+  .readdirSync('./commands')
+  .filter(file => file.endsWith('.js'));
+
+for (const file of commandFiles) {
+  const command = require(`./commands/${file}`);
+
+  client.commands.set(command.data.name, command);
+  commands.push(command.data.toJSON());
 }
+
 
 /* ================= REGISTER SLASH ================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  await rest.put(Routes.applicationCommands(clientId), { body: commands });
-  console.log('✅ Slash registered');
+  try {
+    await rest.put(
+      Routes.applicationCommands(clientId),
+      { body: commands }
+    );
+
+    console.log('✅ Slash commands registered');
+  } catch (err) {
+    console.log(err);
+  }
 })();
+
 
 /* ================= READY ================= */
 
@@ -53,36 +71,39 @@ client.once('clientReady', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
+
 /* ================= SLASH HANDLER ================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const cmd = client.commands.get(interaction.commandName);
-  if (!cmd) return;
+  const command = client.commands.get(interaction.commandName);
+  if (!command) return;
 
   try {
-    await cmd.execute(interaction);
+    await command.execute(interaction);
   } catch (err) {
     console.log(err);
 
-    interaction.reply({
-      content: '❌ Error',
-      ephemeral: true
-    });
+    if (interaction.replied || interaction.deferred) {
+      interaction.followUp({ content: '❌ Error', ephemeral: true });
+    } else {
+      interaction.reply({ content: '❌ Error', ephemeral: true });
+    }
   }
 });
+
 
 /* ===================================================== */
 /* ================= AUTO VOUCH SYSTEM ================= */
 /* ===================================================== */
 
-const DB_FILE = './leaderboard.json';
+const DB_FILE = path.join(__dirname, 'leaderboard.json');
 const TAX_RATE = 0.7;
 
-/* typo detector */
 const vouchRegex =
 /(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
+
 
 /* ---------- DB ---------- */
 
@@ -95,53 +116,45 @@ function saveDB(db) {
   fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
 
-/* ---------- amount parser ---------- */
 
-function parseAmount(text) {
-  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
-  if (!match) return null;
-
-  let val = match[1].toLowerCase();
-
-  if (val.includes('k'))
-    return Math.floor(parseFloat(val) * 1000);
-
-  return parseInt(val);
-}
-
-/* ---------- message listener ---------- */
+/* ---------- AUTO DETECT MESSAGE ---------- */
 
 client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
   const text = msg.content.toLowerCase();
 
-  /* bukan vouch */
   if (!vouchRegex.test(text)) return;
 
-  let amount = parseAmount(text);
-  if (!amount) return;
+  const match = text.match(/(\d+(?:k)?)/i);
+  if (!match) return;
 
-  /* AFTER TAX -> convert */
-  if (text.includes('after'))
+  let amount = match[1];
+
+  if (amount.includes('k')) amount = parseFloat(amount) * 1000;
+  else amount = parseInt(amount);
+
+  // after tax
+  if (/(after|aft|aftr|fter)/i.test(text))
     amount = Math.ceil(amount / TAX_RATE);
-
-  /* before / angka doang = langsung */
 
   const db = loadDB();
 
-  if (!db[msg.author.id])
-    db[msg.author.id] = { robux: 0, vouch: 0 };
+  if (!db[msg.author.id]) {
+    db[msg.author.id] = {
+      robux: 0,
+      vouch: 0
+    };
+  }
 
   db[msg.author.id].robux += amount;
   db[msg.author.id].vouch += 1;
 
   saveDB(db);
 
-  console.log(
-    `AUTO VOUCH → ${msg.author.tag} | +${amount} robux | total vouch ${db[msg.author.id].vouch}`
-  );
+  console.log(`✅ AUTO VOUCH → ${msg.author.tag} +${amount}`);
 });
+
 
 /* ================= LOGIN ================= */
 

@@ -1,101 +1,42 @@
-process.env.TZ = 'Asia/Jakarta';
-
-const {
-  Client,
-  GatewayIntentBits,
-  Collection,
-  Events
-} = require('discord.js');
+require('dotenv').config();
 
 const fs = require('fs');
 const path = require('path');
-const backup = require('./utils/backup');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
 
-const TOKEN = process.env.TOKEN;
-
-const VOUCH_CHANNEL = '1448898315411259424';
-
-const DB_FILE = path.join(__dirname, 'data/leaderboard.json');
-
-if (!fs.existsSync('./data')) fs.mkdirSync('./data');
-if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
+require('./utils/backup'); // 🔥 auto backup + auto create file
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
 client.commands = new Collection();
 
-/* ================= COMMAND LOAD ================= */
+/* ================= LOAD COMMANDS ================= */
+const commandsPath = path.join(__dirname, 'commands');
 
-const commandFiles = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
-
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  client.commands.set(command.data.name, command);
-}
-
-/* ================= SAVE FUNCTION ================= */
-
-function saveDB(db) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-  backup(); // 🔥 auto backup tiap save
+for (const file of fs.readdirSync(commandsPath)) {
+  const cmd = require(`./commands/${file}`);
+  client.commands.set(cmd.data.name, cmd);
 }
 
 /* ================= READY ================= */
-
-client.once(Events.ClientReady, () => {
+client.once('ready', () => {
   console.log(`✅ Login sebagai ${client.user.tag}`);
-
-  // backup tiap 5 menit (extra aman)
-  setInterval(() => {
-    backup();
-  }, 5 * 60 * 1000);
 });
 
-/* ================= VOUCH LISTENER ================= */
-
-client.on(Events.MessageCreate, message => {
-  if (message.author.bot) return;
-
-  if (message.channel.id !== VOUCH_CHANNEL) return;
-
-  const db = JSON.parse(fs.readFileSync(DB_FILE));
-
-  const id = message.author.id;
-
-  if (!db[id]) {
-    db[id] = {
-      robux: 0,
-      vouch: 0
-    };
-  }
-
-  db[id].vouch += 1;
-
-  saveDB(db);
-});
-
-/* ================= SLASH COMMAND ================= */
-
-client.on(Events.InteractionCreate, async interaction => {
+/* ================= INTERACTION ================= */
+client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  const command = client.commands.get(interaction.commandName);
-
-  if (!command) return;
+  const cmd = client.commands.get(interaction.commandName);
+  if (!cmd) return;
 
   try {
-    await command.execute(interaction);
-  } catch (error) {
-    console.error(error);
+    await cmd.execute(interaction);
+  } catch (err) {
+    console.error(err);
   }
 });
 
-/* ================= LOGIN ================= */
-
-client.login(TOKEN);
+client.login(process.env.TOKEN);

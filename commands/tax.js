@@ -31,7 +31,7 @@ module.exports = {
   async execute(interaction) {
 
     const jumlah = interaction.options.getInteger('jumlah');
-    const mode   = interaction.options.getString('mode');
+    const mode   = interaction.options.getString('jenis');
     const rate   = interaction.options.getInteger('rate');
 
     let gamepass, diterima;

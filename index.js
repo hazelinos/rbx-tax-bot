@@ -1,38 +1,132 @@
-/* ================= AUTO VOUCH ================= */
+/* ================= IMPORT ================= */
 
-const fs2 = require('fs');
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  REST,
+  Routes
+} = require('discord.js');
+
+const fs = require('fs');
+
+/* ================= ENV ================= */
+
+const token = process.env.TOKEN;
+const clientId = process.env.CLIENT_ID;
+
+/* ================= CLIENT ================= */
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
+client.commands = new Collection();
+
+/* ================= LOAD COMMAND FILES ================= */
+
+const commands = [];
+const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
+
+for (const file of files) {
+  const cmd = require(`./commands/${file}`);
+  client.commands.set(cmd.data.name, cmd);
+  commands.push(cmd.data.toJSON());
+}
+
+/* ================= REGISTER SLASH ================= */
+
+const rest = new REST({ version: '10' }).setToken(token);
+
+(async () => {
+  await rest.put(Routes.applicationCommands(clientId), { body: commands });
+  console.log('✅ Slash registered');
+})();
+
+/* ================= READY ================= */
+
+client.once('clientReady', () => {
+  console.log(`✅ Bot online: ${client.user.tag}`);
+});
+
+/* ================= SLASH HANDLER ================= */
+
+client.on('interactionCreate', async interaction => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const cmd = client.commands.get(interaction.commandName);
+  if (!cmd) return;
+
+  try {
+    await cmd.execute(interaction);
+  } catch (err) {
+    console.log(err);
+
+    interaction.reply({
+      content: '❌ Error',
+      ephemeral: true
+    });
+  }
+});
+
+/* ===================================================== */
+/* ================= AUTO VOUCH SYSTEM ================= */
+/* ===================================================== */
 
 const DB_FILE = './leaderboard.json';
 const TAX_RATE = 0.7;
 
+/* typo detector */
 const vouchRegex =
 /(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
 
+/* ---------- DB ---------- */
+
 function loadDB() {
-  if (!fs2.existsSync(DB_FILE)) return {};
-  return JSON.parse(fs2.readFileSync(DB_FILE));
+  if (!fs.existsSync(DB_FILE)) return {};
+  return JSON.parse(fs.readFileSync(DB_FILE));
 }
 
 function saveDB(db) {
-  fs2.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
+  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
 }
+
+/* ---------- amount parser ---------- */
+
+function parseAmount(text) {
+  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
+  if (!match) return null;
+
+  let val = match[1].toLowerCase();
+
+  if (val.includes('k'))
+    return Math.floor(parseFloat(val) * 1000);
+
+  return parseInt(val);
+}
+
+/* ---------- message listener ---------- */
 
 client.on('messageCreate', msg => {
   if (msg.author.bot) return;
 
   const text = msg.content.toLowerCase();
+
+  /* bukan vouch */
   if (!vouchRegex.test(text)) return;
 
-  const match = text.match(/(\d+(?:k)?)/i);
-  if (!match) return;
+  let amount = parseAmount(text);
+  if (!amount) return;
 
-  let amount = match[1];
-
-  if (amount.includes('k')) amount = parseFloat(amount) * 1000;
-  else amount = parseInt(amount);
-
-  if (/after/i.test(text))
+  /* AFTER TAX -> convert */
+  if (text.includes('after'))
     amount = Math.ceil(amount / TAX_RATE);
+
+  /* before / angka doang = langsung */
 
   const db = loadDB();
 
@@ -43,4 +137,12 @@ client.on('messageCreate', msg => {
   db[msg.author.id].vouch += 1;
 
   saveDB(db);
+
+  console.log(
+    `AUTO VOUCH → ${msg.author.tag} | +${amount} robux | total vouch ${db[msg.author.id].vouch}`
+  );
 });
+
+/* ================= LOGIN ================= */
+
+client.login(token);

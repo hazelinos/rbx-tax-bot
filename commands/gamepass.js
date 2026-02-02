@@ -4,10 +4,9 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('List semua gamepass dari username')
+    .setDescription('List semua gamepass Roblox (private included)')
     .addStringOption(o =>
       o.setName('username')
-        .setDescription('Username Roblox')
         .setRequired(true)
     ),
 
@@ -21,9 +20,10 @@ module.exports = {
       const cookie = process.env.ROBLOX_COOKIE;
 
       if (!cookie)
-        return interaction.editReply('❌ ROBLOX_COOKIE belum di set');
+        return interaction.editReply('COOKIE belum di set');
 
-      /* username -> userId */
+
+      /* ========= USERNAME -> USERID ========= */
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -37,10 +37,10 @@ module.exports = {
       const userId = userData.data?.[0]?.id;
 
       if (!userId)
-        return interaction.editReply('❌ User tidak ditemukan');
+        return interaction.editReply('User tidak ditemukan');
 
 
-      /* user -> universe */
+      /* ========= USER -> UNIVERSE ========= */
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=10`
       );
@@ -49,15 +49,34 @@ module.exports = {
       const universeId = gameData.data?.[0]?.id;
 
       if (!universeId)
-        return interaction.editReply('❌ User tidak punya game');
+        return interaction.editReply('User tidak punya game');
 
 
-      /* 🔥 CREATOR API (PRIVATE PASSES KEDETEK) */
+      /* ===================================================
+         🔥 AMBIL CSRF TOKEN DULU (WAJIB BANGET)
+      =================================================== */
+      const csrfRes = await fetch(
+        'https://auth.roblox.com/v2/logout',
+        {
+          method: 'POST',
+          headers: {
+            Cookie: `.ROBLOSECURITY=${cookie}`
+          }
+        }
+      );
+
+      const csrf = csrfRes.headers.get('x-csrf-token');
+
+
+      /* ===================================================
+         🔥 REQUEST CREATOR API PAKAI TOKEN
+      =================================================== */
       const passRes = await fetch(
         `https://develop.roblox.com/v1/universes/${universeId}/game-passes?limit=100`,
         {
           headers: {
-            Cookie: `.ROBLOSECURITY=${cookie}`
+            Cookie: `.ROBLOSECURITY=${cookie}`,
+            'X-CSRF-TOKEN': csrf
           }
         }
       );
@@ -65,10 +84,10 @@ module.exports = {
       const passData = await passRes.json();
 
       if (!passData.data?.length)
-        return interaction.editReply('❌ Tidak ada gamepass');
+        return interaction.editReply('Tidak ada gamepass');
 
 
-      /* ===== FORMAT KAYAK SCREENSHOT ===== */
+      /* ========= FORMAT OUTPUT ========= */
       let text = `Semua gamepass milik ${username}\n\n`;
 
       passData.data.forEach(p => {
@@ -79,7 +98,7 @@ module.exports = {
 
     } catch (err) {
       console.log(err);
-      interaction.editReply('❌ Error ambil gamepass');
+      interaction.editReply('Error ambil gamepass');
     }
   }
 };

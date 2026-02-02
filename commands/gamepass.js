@@ -1,12 +1,14 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const cheerio = require('cheerio');
 
 module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('Ambil gamepass dari store game user')
+    .setDescription('Cari semua gamepass dari store Roblox (scraping)')
     .addStringOption(o =>
       o.setName('username')
+        .setDescription('Username roblox')
         .setRequired(true)
     ),
 
@@ -18,7 +20,7 @@ module.exports = {
 
     try {
 
-      /* username -> userId */
+      /* ================= USERNAME -> USERID ================= */
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -32,49 +34,77 @@ module.exports = {
       const userId = userData.data?.[0]?.id;
 
       if (!userId)
-        return interaction.editReply('User tidak ditemukan');
+        return interaction.editReply('❌ User tidak ditemukan');
 
 
-      /* user -> games */
+      /* ================= USER -> GAME / PLACE ================= */
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=10`
       );
 
       const gameData = await gameRes.json();
-      const universeId = gameData.data?.[0]?.id;
+      const placeId = gameData.data?.[0]?.rootPlace?.id;
 
-      if (!universeId)
-        return interaction.editReply('User tidak punya game');
+      if (!placeId)
+        return interaction.editReply('❌ User tidak punya game');
 
 
-      /* 🔥 STORE PASS API (INI YANG BENER) */
-      const passRes = await fetch(
-        `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
+      /* ================= SCRAPE STORE PAGE ================= */
+      const page = await fetch(
+        `https://www.roblox.com/games/${placeId}`,
+        {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Accept-Language': 'en-US'
+          }
+        }
       );
 
-      const passData = await passRes.json();
+      const html = await page.text();
+      const $ = cheerio.load(html);
 
-      if (!passData.data?.length)
-        return interaction.editReply('❌ Tidak ada gamepass');
+      const ids = new Set();
 
+      // cari semua link gamepass di halaman
+      $('a').each((_, el) => {
+        const href = $(el).attr('href');
+        if (!href) return;
 
-      let text = '';
-
-      passData.data.forEach(p => {
-        text += `• **${p.name}** — ${p.price} Robux\nhttps://www.roblox.com/game-pass/${p.id}\n\n`;
+        const match = href.match(/game-pass\/(\d+)/);
+        if (match) ids.add(match[1]);
       });
 
+      if (!ids.size)
+        return interaction.editReply('❌ Tidak ada gamepass ditemukan');
 
+
+      /* ================= AMBIL DETAIL HARGA ================= */
+      let text = '';
+
+      for (const id of ids) {
+
+        const infoRes = await fetch(
+          `https://economy.roblox.com/v1/game-passes/${id}/product-info`
+        );
+
+        const info = await infoRes.json();
+
+        text += `• **${info.Name}** — ${info.PriceInRobux} Robux
+https://www.roblox.com/game-pass/${id}\n\n`;
+      }
+
+
+      /* ================= EMBED ================= */
       const embed = new EmbedBuilder()
         .setColor(0x00ff99)
-        .setTitle(`🎟 Gamepass milik ${username}`)
-        .setDescription(text);
+        .setTitle(`🎟 Gamepass ${username}`)
+        .setDescription(text.slice(0, 4000));
 
       interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
       console.log(err);
-      interaction.editReply('Error ambil data');
+      interaction.editReply('❌ Error scraping Roblox');
     }
   }
 };

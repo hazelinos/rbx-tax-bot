@@ -17,7 +17,7 @@ module.exports = {
       o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
     .addStringOption(o =>
       o.setName('jenis')
-        .setDescription('Mode')
+        .setDescription('after atau before')
         .addChoices(
           { name: 'After Tax', value: 'after' },
           { name: 'Before Tax', value: 'before' }

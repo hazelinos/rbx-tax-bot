@@ -16,7 +16,7 @@ module.exports = {
     .addIntegerOption(o =>
       o.setName('jumlah').setDescription('Jumlah robux').setRequired(true))
     .addStringOption(o =>
-      o.setName('mode')
+      o.setName('jenis')
         .setDescription('Mode')
         .addChoices(
           { name: 'After Tax', value: 'after' },

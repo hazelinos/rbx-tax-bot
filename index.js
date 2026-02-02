@@ -5,7 +5,9 @@
 const {
   Client,
   GatewayIntentBits,
-  Collection
+  Collection,
+  REST,
+  Routes
 } = require("discord.js");
 
 const fs = require("fs");
@@ -39,8 +41,10 @@ client.commands = new Collection();
 
 
 // ===============================
-// LOAD COMMANDS FOLDER
+// LOAD COMMAND FILES
 // ===============================
+
+const commands = [];
 
 const commandFiles = fs
   .readdirSync("./commands")
@@ -48,8 +52,32 @@ const commandFiles = fs
 
 for (const file of commandFiles) {
   const command = require(`./commands/${file}`);
+
   client.commands.set(command.data.name, command);
+
+  // 🔥 PENTING buat register slash
+  commands.push(command.data.toJSON());
 }
+
+
+// ===============================
+// 🔥 REGISTER SLASH COMMANDS (INI YG HILANG TADI)
+// ===============================
+
+const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+
+(async () => {
+  try {
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: commands }
+    );
+
+    console.log("✅ Slash registered");
+  } catch (err) {
+    console.error(err);
+  }
+})();
 
 
 // ===============================
@@ -69,7 +97,6 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
-
   if (!command) return;
 
   try {

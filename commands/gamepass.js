@@ -1,13 +1,14 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
 
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('List semua gamepass Roblox (private included)')
+    .setDescription('List semua gamepass dari user Roblox')
     .addStringOption(o =>
       o.setName('username')
         .setRequired(true)
+        .setDescription('Username Roblox')
     ),
 
   async execute(interaction) {
@@ -20,10 +21,9 @@ module.exports = {
       const cookie = process.env.ROBLOX_COOKIE;
 
       if (!cookie)
-        return interaction.editReply('COOKIE belum di set');
+        return interaction.editReply('❌ ROBLOX_COOKIE belum diset di Railway');
 
-
-      /* ========= USERNAME -> USERID ========= */
+      /* USERNAME -> USERID */
       const userRes = await fetch(
         'https://users.roblox.com/v1/usernames/users',
         {
@@ -37,10 +37,10 @@ module.exports = {
       const userId = userData.data?.[0]?.id;
 
       if (!userId)
-        return interaction.editReply('User tidak ditemukan');
+        return interaction.editReply('❌ User tidak ditemukan');
 
 
-      /* ========= USER -> UNIVERSE ========= */
+      /* USER -> GAMES */
       const gameRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=10`
       );
@@ -49,34 +49,28 @@ module.exports = {
       const universeId = gameData.data?.[0]?.id;
 
       if (!universeId)
-        return interaction.editReply('User tidak punya game');
+        return interaction.editReply('❌ User tidak punya game');
 
 
-      /* ===================================================
-         🔥 AMBIL CSRF TOKEN DULU (WAJIB BANGET)
-      =================================================== */
+      /* AMBIL CSRF */
       const csrfRes = await fetch(
         'https://auth.roblox.com/v2/logout',
         {
           method: 'POST',
-          headers: {
-            Cookie: `.ROBLOSECURITY=${cookie}`
-          }
+          headers: { Cookie: `.ROBLOSECURITY=${cookie}` }
         }
       );
 
       const csrf = csrfRes.headers.get('x-csrf-token');
 
 
-      /* ===================================================
-         🔥 REQUEST CREATOR API PAKAI TOKEN
-      =================================================== */
+      /* AMBIL GAMEPASS */
       const passRes = await fetch(
         `https://develop.roblox.com/v1/universes/${universeId}/game-passes?limit=100`,
         {
           headers: {
             Cookie: `.ROBLOSECURITY=${cookie}`,
-            'X-CSRF-TOKEN': csrf
+            'x-csrf-token': csrf
           }
         }
       );
@@ -84,21 +78,25 @@ module.exports = {
       const passData = await passRes.json();
 
       if (!passData.data?.length)
-        return interaction.editReply('Tidak ada gamepass');
+        return interaction.editReply('❌ Tidak ada gamepass');
 
 
-      /* ========= FORMAT OUTPUT ========= */
-      let text = `Semua gamepass milik ${username}\n\n`;
+      let text = '';
 
       passData.data.forEach(p => {
-        text += `Gamepass, ${p.price} Robux, ${p.id}\n`;
+        text += `🎟 ${p.name}\n💰 ${p.price} Robux\n🆔 ${p.id}\nhttps://www.roblox.com/game-pass/${p.id}\n\n`;
       });
 
-      interaction.editReply(text);
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff99)
+        .setTitle(`Gamepass milik ${username}`)
+        .setDescription(text.slice(0, 4000));
+
+      interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
       console.log(err);
-      interaction.editReply('Error ambil gamepass');
+      interaction.editReply('❌ Error ambil data');
     }
   }
 };

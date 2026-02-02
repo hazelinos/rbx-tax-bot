@@ -70,8 +70,10 @@ client.on('interactionCreate', async interaction => {
 });
 
 /* ================= AUTO VOUCH ================= */
+/* 🔥 FIX PERMANENT STORAGE DI SINI */
 
-const DB_FILE = './leaderboard.json';
+const DB_FILE = '/data/leaderboard.json'; // ← PENTING
+
 const TAX_RATE = 0.7;
 
 const vouchRegex =
@@ -110,7 +112,6 @@ client.on('messageCreate', msg => {
   if (content.includes('after'))
     amount = Math.ceil(amount / TAX_RATE);
 
-  /* before / angka doang -> langsung */
   const db = loadDB();
 
   if (!db[msg.author.id])

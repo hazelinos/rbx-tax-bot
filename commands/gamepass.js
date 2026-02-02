@@ -5,8 +5,12 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('gamepass')
     .setDescription('Cari gamepass dari username roblox')
+
     .addStringOption(o =>
-      o.setName('username').setRequired(true)
+      o
+        .setName('username')
+        .setDescription('Username Roblox yang mau dicari') // WAJIB ADA
+        .setRequired(true)
     ),
 
   async execute(interaction) {

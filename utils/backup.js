@@ -1,45 +1,27 @@
-const fs = require("fs");
-const path = require("path");
+const fs = require('fs');
+const path = require('path');
 
-// ========================
-// PATH FILE
-// ========================
+const dataDir = path.join(__dirname, '../data');
+const dataPath = path.join(dataDir, 'leaderboard.json');
 
-const dataDir = path.join(__dirname, "../data");
-const filePath = path.join(dataDir, "leaderboard.json");
-const backupPath = path.join(dataDir, "leaderboard.backup.json");
+/* ================= AUTO CREATE ================= */
 
-// ========================
-// PASTIIN FOLDER + FILE ADA
-// ========================
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir);
+if (!fs.existsSync(dataPath)) {
+  fs.writeFileSync(dataPath, '{}');
+  console.log('📁 leaderboard.json dibuat otomatis');
 }
 
-if (!fs.existsSync(filePath)) {
-  fs.writeFileSync(filePath, JSON.stringify({}, null, 2));
-}
+/* ================= AUTO BACKUP ================= */
 
-// ========================
-// SAVE FUNCTION
-// ========================
+setInterval(() => {
+  const backupPath = path.join(
+    dataDir,
+    `leaderboard-backup-${Date.now()}.json`
+  );
 
-function backupNow() {
-  try {
-    const raw = fs.readFileSync(filePath, "utf8");
-    fs.writeFileSync(backupPath, raw);
+  fs.copyFileSync(dataPath, backupPath);
 
-    console.log("💾 Auto backup leaderboard saved");
-  } catch (err) {
-    console.log("❌ Backup error:", err);
-  }
-}
-
-// ========================
-// AUTO BACKUP TIAP 30 DETIK
-// ========================
-
-setInterval(backupNow, 30000);
-
-module.exports = backupNow;
+  console.log('💾 Auto backup leaderboard saved');
+}, 30000); // 30 detik

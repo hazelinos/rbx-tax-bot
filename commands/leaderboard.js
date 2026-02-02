@@ -6,7 +6,6 @@ const {
 const fs = require('fs');
 const path = require('path');
 
-/* 🔥 PENTING — PATH HARUS SAMA DENGAN index.js */
 const DB_FILE = path.join(__dirname, '../data/leaderboard.json');
 
 const format = n => Number(n).toLocaleString('id-ID');
@@ -27,18 +26,30 @@ module.exports = {
     let desc = '';
 
     list.slice(0, 10).forEach(([id, data], i) => {
-      desc += `${i + 1}. <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
+      desc += `**${String(i + 1).padStart(2, '0')} —** <@${id}> • **${format(data.robux)} Robux** • **${data.vouch} Vouch**\n`;
     });
 
     if (!desc) desc = 'Belum ada data';
 
-    await interaction.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(0x1F6FEB)
-          .setTitle('Top Spend Robux & Vouch')
-          .setDescription(desc)
-      ]
-    });
+    const embed = new EmbedBuilder()
+      .setColor(0x1F6FEB)
+
+      /* 🔥 STYLE KAYA DULU */
+      .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
+
+      .setDescription(desc)
+
+      /* 🔥 FOTO / ICON */
+      .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
+
+      /* 🔥 FOOTER */
+      .setFooter({
+        text: `Nice Blox • Page 1/1 | Today ${new Date().toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit'
+        })}`
+      });
+
+    await interaction.reply({ embeds: [embed] });
   }
 };

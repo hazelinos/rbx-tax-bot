@@ -1,65 +1,87 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const axios = require('axios');
 
 module.exports = {
+
   data: new SlashCommandBuilder()
     .setName('gamepass')
-    .setDescription('Cari gamepass Roblox dari nama')
+    .setDescription('Cari gamepass dari username roblox')
     .addStringOption(o =>
-      o.setName('nama')
-        .setDescription('Nama gamepass')
-        .setRequired(true)
+      o.setName('username').setRequired(true)
     ),
 
   async execute(interaction) {
 
     await interaction.deferReply();
 
-    const keyword = interaction.options.getString('nama');
+    const username = interaction.options.getString('username');
+    const cookie = process.env.ROBLOX_COOKIE;
 
     try {
 
-      /* 🔥 SEARCH GAMEPASS API ROBLOX */
-      const res = await axios.get(
-        `https://apis.roblox.com/search-api/omni-search`,
+      /* username -> userId */
+      const userRes = await fetch(
+        'https://users.roblox.com/v1/usernames/users',
         {
-          params: {
-            searchQuery: keyword,
-            assetType: 34, // gamepass
-            limit: 1
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usernames: [username] })
+        }
+      );
+
+      const userData = await userRes.json();
+      const userId = userData.data?.[0]?.id;
+
+      if (!userId)
+        return interaction.editReply('User tidak ditemukan');
+
+      /* userId -> games */
+      const gameRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?limit=10`,
+        {
+          headers: {
+            Cookie: `.ROBLOSECURITY=${cookie}`
           }
         }
       );
 
-      const result = res.data?.searchResults?.[0]?.items?.[0];
+      const gameData = await gameRes.json();
 
-      if (!result)
-        return interaction.editReply('❌ Gamepass tidak ditemukan');
+      if (!gameData.data?.length)
+        return interaction.editReply('User tidak punya game');
 
-      const id = result.assetId;
+      const universeId = gameData.data[0].id;
 
-      /* 🔥 GET DETAIL */
-      const detail = await axios.get(
-        `https://economy.roblox.com/v1/assets/${id}/details`
+      /* universe -> gamepasses */
+      const passRes = await fetch(
+        `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=50`,
+        {
+          headers: {
+            Cookie: `.ROBLOSECURITY=${cookie}`
+          }
+        }
       );
 
-      const data = detail.data;
+      const passData = await passRes.json();
+
+      if (!passData.data?.length)
+        return interaction.editReply('Gamepass tidak ditemukan');
+
+      let text = '';
+
+      passData.data.slice(0, 10).forEach(p => {
+        text += `${p.name} • ${p.price} Robux\n`;
+      });
 
       const embed = new EmbedBuilder()
-        .setColor('#2b2d31')
-        .setTitle(`🎮 ${data.Name}`)
-        .setDescription(
-          `💰 Harga : **${data.PriceInRobux || 0} Robux**\n` +
-          `🆔 ID : **${id}**\n` +
-          `🔗 https://www.roblox.com/game-pass/${id}`
-        )
-        .setFooter({ text: 'Nice Blox Gamepass Finder' });
+        .setColor(0x1F6FEB)
+        .setTitle(`Gamepass ${username}`)
+        .setDescription(text);
 
       interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
       console.log(err);
-      interaction.editReply('❌ Error ambil data Roblox');
+      interaction.editReply('Error ambil data roblox');
     }
   }
 };

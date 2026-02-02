@@ -18,35 +18,48 @@ module.exports = {
 
   async execute(interaction) {
 
-    const db = JSON.parse(fs.readFileSync(DB_FILE));
+    try {
 
-    const list = Object.entries(db)
-      .sort((a, b) => b[1].robux - a[1].robux);
+      const db = JSON.parse(fs.readFileSync(DB_FILE));
 
-    let desc = '';
+      const list = Object.entries(db)
+        .sort((a, b) => b[1].robux - a[1].robux);
 
-    list.slice(0, 10).forEach(([id, data], i => {
-      const rank = String(i + 1).padStart(2, '0');
+      let desc = '';
 
-      desc += `${rank} — <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
-    }));
+      list.slice(0, 10).forEach(([id, data], i) => {
+        const rank = String(i + 1).padStart(2, '0');
 
-    if (!desc) desc = 'Belum ada data';
-
-    const now = new Date();
-    const time = now.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const embed = new EmbedBuilder()
-      .setColor(0x1F6FEB)
-      .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
-      .setDescription(desc)
-      .setFooter({
-        text: `Nice Blox • Page 1/1 | Today ${time}`
+        desc += `${rank} — <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
       });
 
-    await interaction.reply({ embeds: [embed] });
+      if (!desc) desc = 'Belum ada data';
+
+      const time = new Date().toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const embed = new EmbedBuilder()
+        .setColor(0x1F6FEB)
+        .setTitle('━━━ ✦ Top Spend Robux & Vouch ✦ ━━━')
+        .setDescription(desc)
+        .setFooter({
+          text: `Nice Blox • Page 1/1 | Today ${time}`
+        });
+
+      await interaction.reply({ embeds: [embed] });
+
+    } catch (err) {
+
+      console.log(err);
+
+      await interaction.reply({
+        content: '❌ Error loading leaderboard',
+        ephemeral: true
+      });
+
+    }
+
   }
 };

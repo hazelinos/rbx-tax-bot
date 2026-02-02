@@ -127,4 +127,3 @@ console.log(AUTO VOUCH → ${msg.author.tag} | +${amount} robux);
 /* ================= LOGIN ================= */
 
 client.login(token);
-tuh ubah

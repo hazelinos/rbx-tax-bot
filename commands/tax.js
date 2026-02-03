@@ -54,7 +54,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(EMBED_COLOR)
-      .setTitle('💸 Robux Tax Calculator')
+      .setTitle('Robux Tax Calculator')
       .setDescription(
 `Gamepass : ${format(gamepass)} Robux
 Diterima : ${format(diterima)} Robux

@@ -36,25 +36,63 @@ const client = new Client({
 client.commands = new Collection();
 
 
-/* ================= DATA SAFE ================= */
+/* ================================================= */
+/* ================= DATA SAFE ===================== */
+/* ================================================= */
 
 const DATA_DIR = path.join(__dirname, 'data');
+
 const DB_FILE = path.join(DATA_DIR, 'leaderboard.json');
+const BACKUP_FILE = path.join(DATA_DIR, 'backup.json'); // ⭐ NEW
 const VOUCH_LOG = path.join(DATA_DIR, 'vouchLogs.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
 if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
+if (!fs.existsSync(BACKUP_FILE)) fs.writeFileSync(BACKUP_FILE, '{}');
 if (!fs.existsSync(VOUCH_LOG)) fs.writeFileSync(VOUCH_LOG, '{}');
 
 
 /* ================= DB HELPERS ================= */
 
 const loadJSON = file => JSON.parse(fs.readFileSync(file));
+
 const saveJSON = (file, data) =>
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 
 
-/* ================= LOAD COMMANDS (ANTI CRASH) ================= */
+/* ================================================= */
+/* =============== AUTO RESTORE ===================== */
+/* ================================================= */
+
+function restoreIfEmpty() {
+  const main = loadJSON(DB_FILE);
+
+  if (Object.keys(main).length === 0) {
+    const backup = loadJSON(BACKUP_FILE);
+
+    if (Object.keys(backup).length > 0) {
+      saveJSON(DB_FILE, backup);
+      console.log('♻️ Restored leaderboard from backup');
+    }
+  }
+}
+
+restoreIfEmpty();
+
+
+/* ================================================= */
+/* =============== AUTO BACKUP (30s) ================ */
+/* ================================================= */
+
+setInterval(() => {
+  const db = loadJSON(DB_FILE);
+  saveJSON(BACKUP_FILE, db);
+  console.log('💾 Auto backup saved');
+}, 30000);
+
+
+/* ================= LOAD COMMANDS ================= */
 
 const commands = [];
 const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
@@ -63,10 +101,7 @@ for (const file of files) {
   try {
     const cmd = require(`./commands/${file}`);
 
-    if (!cmd?.data?.name) {
-      console.log(`❌ Invalid command skipped: ${file}`);
-      continue;
-    }
+    if (!cmd?.data?.name) continue;
 
     client.commands.set(cmd.data.name, cmd);
     commands.push(cmd.data.toJSON());
@@ -75,7 +110,6 @@ for (const file of files) {
 
   } catch (err) {
     console.log(`❌ Error loading ${file}`);
-    console.log(err);
   }
 }
 
@@ -85,16 +119,11 @@ for (const file of files) {
 const rest = new REST({ version: '10' }).setToken(token);
 
 (async () => {
-  try {
-    await rest.put(Routes.applicationCommands(clientId), {
-      body: commands
-    });
+  await rest.put(Routes.applicationCommands(clientId), {
+    body: commands
+  });
 
-    console.log('✅ Slash commands registered');
-  } catch (err) {
-    console.log('❌ Slash register failed');
-    console.log(err);
-  }
+  console.log('✅ Slash commands registered');
 })();
 
 
@@ -116,7 +145,6 @@ client.on('interactionCreate', async interaction => {
   try {
     await cmd.execute(interaction);
   } catch (err) {
-    console.log(`❌ Command error: ${interaction.commandName}`);
     console.log(err);
 
     if (!interaction.replied)
@@ -142,6 +170,7 @@ function parseAmount(text) {
 
   let val = match[1].toLowerCase();
   if (val.includes('k')) return parseFloat(val) * 1000;
+
   return parseFloat(val);
 }
 

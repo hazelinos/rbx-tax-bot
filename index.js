@@ -43,13 +43,11 @@ client.commands = new Collection();
 const DATA_DIR = path.join(__dirname, 'data');
 
 const DB_FILE = path.join(DATA_DIR, 'leaderboard.json');
-const BACKUP_FILE = path.join(DATA_DIR, 'backup.json'); // ⭐ NEW
 const VOUCH_LOG = path.join(DATA_DIR, 'vouchLogs.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 
 if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
-if (!fs.existsSync(BACKUP_FILE)) fs.writeFileSync(BACKUP_FILE, '{}');
 if (!fs.existsSync(VOUCH_LOG)) fs.writeFileSync(VOUCH_LOG, '{}');
 
 
@@ -62,37 +60,8 @@ const saveJSON = (file, data) =>
 
 
 /* ================================================= */
-/* =============== AUTO RESTORE ===================== */
-/* ================================================= */
-
-function restoreIfEmpty() {
-  const main = loadJSON(DB_FILE);
-
-  if (Object.keys(main).length === 0) {
-    const backup = loadJSON(BACKUP_FILE);
-
-    if (Object.keys(backup).length > 0) {
-      saveJSON(DB_FILE, backup);
-      console.log('♻️ Restored leaderboard from backup');
-    }
-  }
-}
-
-restoreIfEmpty();
-
-
-/* ================================================= */
-/* =============== AUTO BACKUP (30s) ================ */
-/* ================================================= */
-
-setInterval(() => {
-  const db = loadJSON(DB_FILE);
-  saveJSON(BACKUP_FILE, db);
-  console.log('💾 Auto backup saved');
-}, 30000);
-
-
 /* ================= LOAD COMMANDS ================= */
+/* ================================================= */
 
 const commands = [];
 const files = fs.readdirSync('./commands').filter(f => f.endsWith('.js'));
@@ -114,7 +83,9 @@ for (const file of files) {
 }
 
 
-/* ================= REGISTER SLASH ================= */
+/* ================================================= */
+/* =============== REGISTER SLASH ================== */
+/* ================================================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -127,14 +98,18 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 
-/* ================= READY ================= */
+/* ================================================= */
+/* ================= READY ========================= */
+/* ================================================= */
 
 client.once('clientReady', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
 
-/* ================= SLASH HANDLER ================= */
+/* ================================================= */
+/* =============== SLASH HANDLER =================== */
+/* ================================================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -164,14 +139,20 @@ const vouchRegex =
 /(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
 
 
+/* ================= SAFE PARSE ================= */
+/* biar gambar / angka random gak kebaca */
+
 function parseAmount(text) {
-  const match = text.match(/(\d+(?:\.\d+)?k?)/i);
+  const match = text.match(/vouch.*?(\d+(?:k)?)/i);
+
   if (!match) return 1;
 
   let val = match[1].toLowerCase();
-  if (val.includes('k')) return parseFloat(val) * 1000;
 
-  return parseFloat(val);
+  if (val.includes('k'))
+    return parseInt(val.replace('k', '')) * 1000;
+
+  return parseInt(val);
 }
 
 
@@ -185,6 +166,8 @@ client.on('messageCreate', msg => {
   if (!vouchRegex.test(text)) return;
 
   let amount = parseAmount(text);
+
+  if (amount > 100000) amount = 100000;
 
   if (text.includes('after'))
     amount = Math.ceil(amount / TAX_RATE);

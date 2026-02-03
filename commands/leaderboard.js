@@ -53,7 +53,7 @@ module.exports = {
 
       return new EmbedBuilder()
         .setColor(EMBED_COLOR)
-        .setTitle('✨ Top Spend Robux & Vouch ✨')
+        .setTitle('✦ Top Spend Robux & Vouch ✦')
         .setDescription(text)
         .setFooter({
           text: `Nice Blox • Page ${page + 1}/${totalPages} • Today ${new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`

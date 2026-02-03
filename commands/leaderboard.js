@@ -1,44 +1,123 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle
+} = require('discord.js');
+
 const fs = require('fs');
 const path = require('path');
 
-const DB = path.join(__dirname, '../data/leaderboard.json');
+const DB_FILE = path.join(__dirname, '../data/leaderboard.json');
 
-const format = n => Number(n).toLocaleString('id-ID');
+const PER_PAGE = 10;
+const EMBED_COLOR = 0x1F6FEB;
+
+const format = n => n.toLocaleString('id-ID');
 
 module.exports = {
+
   data: new SlashCommandBuilder()
     .setName('leaderboard')
-    .setDescription('Top Spend Robux & Vouch'),
+    .setDescription('Top spend robux & vouch leaderboard'),
 
   async execute(interaction) {
 
-    const db = JSON.parse(fs.readFileSync(DB));
+    const db = JSON.parse(fs.readFileSync(DB_FILE));
 
-    const list = Object.entries(db)
+    const users = Object.entries(db)
       .sort((a, b) => b[1].robux - a[1].robux);
 
-    let desc = '';
+    if (!users.length)
+      return interaction.reply('Belum ada data leaderboard');
 
-    list.slice(0, 10).forEach(([id, data], i) => {
-      desc += `${i + 1}. <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
+    let page = 0;
+    const totalPages = Math.ceil(users.length / PER_PAGE);
+
+    /* ================= BUILD EMBED ================= */
+
+    const buildEmbed = (page) => {
+
+      const start = page * PER_PAGE;
+      const slice = users.slice(start, start + PER_PAGE);
+
+      let text = '';
+
+      slice.forEach(([id, data], i) => {
+        const rank = start + i + 1;
+
+        text +=
+`${rank}. <@${id}> • ${format(data.robux)} Robux • ${data.vouch} Vouch\n`;
+      });
+
+      return new EmbedBuilder()
+        .setColor(EMBED_COLOR)
+        .setTitle('✨ Top Spend Robux & Vouch ✨')
+        .setDescription(text)
+        .setFooter({
+          text: `Nice Blox • Page ${page + 1}/${totalPages} • Today ${new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`
+        });
+    };
+
+    /* ================= NO PAGINATION ================= */
+
+    if (totalPages === 1) {
+      return interaction.reply({
+        embeds: [buildEmbed(0)]
+      });
+    }
+
+    /* ================= BUTTONS ================= */
+
+    const getRow = () =>
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('prev')
+          .setLabel('◀')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(page === 0),
+
+        new ButtonBuilder()
+          .setCustomId('next')
+          .setLabel('▶')
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(page === totalPages - 1)
+      );
+
+    const msg = await interaction.reply({
+      embeds: [buildEmbed(page)],
+      components: [getRow()],
+      fetchReply: true
     });
 
-    if (!desc) desc = 'Belum ada data';
+    /* ================= COLLECTOR ================= */
 
-    /* 🔥 JAM WIB */
-    const time = new Date().toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Jakarta'
+    const collector = msg.createMessageComponentCollector({
+      time: 120000
     });
 
-    const embed = new EmbedBuilder()
-      .setColor(0x1F6FEB)
-      .setTitle('✦ Top Spend Robux & Vouch ✦')
-      .setDescription(desc)
-      .setFooter({ text: `Nice Blox • Page 1/1 | Today ${time}` });
+    collector.on('collect', async i => {
 
-    await interaction.reply({ embeds: [embed] });
+      if (i.user.id !== interaction.user.id)
+        return i.reply({
+          content: 'Ini bukan tombol kamu',
+          ephemeral: true
+        });
+
+      if (i.customId === 'prev') page--;
+      if (i.customId === 'next') page++;
+
+      await i.update({
+        embeds: [buildEmbed(page)],
+        components: [getRow()]
+      });
+    });
+
+    collector.on('end', async () => {
+      try {
+        await msg.edit({ components: [] });
+      } catch {}
+    });
   }
 };

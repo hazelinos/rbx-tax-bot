@@ -51,10 +51,9 @@ if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, '{}');
 if (!fs.existsSync(VOUCH_LOG)) fs.writeFileSync(VOUCH_LOG, '{}');
 
 
-/* ================= DB HELPERS ================= */
+/* ================= JSON HELPERS ================= */
 
 const loadJSON = file => JSON.parse(fs.readFileSync(file));
-
 const saveJSON = (file, data) =>
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 
@@ -79,13 +78,12 @@ for (const file of files) {
 
   } catch (err) {
     console.log(`❌ Error loading ${file}`);
+    console.log(err);
   }
 }
 
 
-/* ================================================= */
-/* =============== REGISTER SLASH ================== */
-/* ================================================= */
+/* ================= REGISTER SLASH ================= */
 
 const rest = new REST({ version: '10' }).setToken(token);
 
@@ -98,18 +96,14 @@ const rest = new REST({ version: '10' }).setToken(token);
 })();
 
 
-/* ================================================= */
-/* ================= READY ========================= */
-/* ================================================= */
+/* ================= READY ================= */
 
 client.once('clientReady', () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
 });
 
 
-/* ================================================= */
-/* =============== SLASH HANDLER =================== */
-/* ================================================= */
+/* ================= SLASH HANDLER ================= */
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
@@ -139,26 +133,27 @@ const vouchRegex =
 /(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i;
 
 
-/* ================= SAFE PARSE ================= */
-/* biar gambar / angka random gak kebaca */
+/* ================= PARSE AMOUNT (FIXED) ================= */
+/* support: 1k, 2.5k, 1000, 500 */
 
 function parseAmount(text) {
-  const match = text.match(/vouch.*?(\d+(?:k)?)/i);
 
+  const match = text.match(/(\d+(?:\.\d+)?)(k?)/i);
   if (!match) return 1;
 
-  let val = match[1].toLowerCase();
+  let amount = parseFloat(match[1]);
 
-  if (val.includes('k'))
-    return parseInt(val.replace('k', '')) * 1000;
+  if (match[2].toLowerCase() === 'k')
+    amount *= 1000;
 
-  return parseInt(val);
+  return Math.floor(amount);
 }
 
 
 /* ================= ADD VOUCH ================= */
 
 client.on('messageCreate', msg => {
+
   if (msg.author.bot) return;
   if (msg.channel.id !== VOUCH_CHANNEL_ID) return;
 
@@ -167,8 +162,7 @@ client.on('messageCreate', msg => {
 
   let amount = parseAmount(text);
 
-  if (amount > 100000) amount = 100000;
-
+  /* AFTER TAX MODE (FIX) */
   if (text.includes('after'))
     amount = Math.ceil(amount / TAX_RATE);
 
@@ -196,16 +190,17 @@ client.on('messageCreate', msg => {
 /* ================= REMOVE VOUCH ================= */
 
 client.on('messageDelete', msg => {
+
   if (!msg?.id) return;
 
   const logs = loadJSON(VOUCH_LOG);
   const log = logs[msg.id];
-
   if (!log) return;
 
   const db = loadJSON(DB_FILE);
 
   if (db[log.user]) {
+
     db[log.user].robux -= log.robux;
     db[log.user].vouch -= 1;
 

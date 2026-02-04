@@ -61,7 +61,6 @@ module.exports = {
     minute:'2-digit',
     timeZone:'Asia/Jakarta'
   })}`
-});
         });
     };
 

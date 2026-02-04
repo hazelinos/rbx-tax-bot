@@ -56,7 +56,12 @@ module.exports = {
         .setTitle('✦ Top Spend Robux & Vouch ✦')
         .setDescription(text)
         .setFooter({
-          text: `Nice Blox • Page ${page + 1}/${totalPages} • Today ${new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}`
+  text: `Nice Blox • Page ${page + 1}/${totalPages} • Today ${new Date().toLocaleTimeString('id-ID',{
+    hour:'2-digit',
+    minute:'2-digit',
+    timeZone:'Asia/Jakarta'
+  })}`
+});
         });
     };
 

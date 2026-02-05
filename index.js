@@ -84,6 +84,8 @@ client.on('interactionCreate', async interaction => {
 const TAX_RATE = 0.7; 
 const VOUCH_CHANNEL_ID = '1448898315411259424'; 
 const vouchRegex = /(vouch|vouc|voc|vos|voch|v0uch|vuch|vouchh|vouhc|v0cuh|cup|vid|vvoch)/i; 
+const afterRegex = /(after|aft|aftr|af|atf)/i; 
+const beforeRegex = /(before|bef|befr|bfr)/i; 
 
 /* ================= PARSE AMOUNT ================= */ 
 function parseAmount(text) { 
@@ -102,11 +104,11 @@ client.on('messageCreate', msg => {
   if (!vouchRegex.test(text)) return; 
 
   let amount = parseAmount(text); 
-  console.log('Parsed amount:', amount); 
 
-  if (text.includes('after')) { 
+  if (afterRegex.test(text)) { 
     amount = Math.floor(amount / TAX_RATE); 
-    console.log('After tax:', amount); 
+  } else if (beforeRegex.test(text)) { 
+    amount = Math.floor(amount * TAX_RATE); 
   } 
 
   const db = loadJSON(DB_FILE); 

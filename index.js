@@ -137,14 +137,16 @@ const vouchRegex =
 /* support: 1k, 2.5k, 1000, 500 */
 
 function parseAmount(text) {
+  const matches = text.match(/\b\d+(?:\.\d+)?k?\b/gi);
+  if (!matches) return 1;
 
-  const match = text.match(/(\d+(?:\.\d+)?)(k?)/i);
-  if (!match) return 1;
+  let raw = matches[matches.length - 1].toLowerCase();
 
-  let amount = parseFloat(match[1]);
+  let amount = raw.endsWith('k')
+    ? parseFloat(raw) * 1000
+    : parseFloat(raw);
 
-  if (match[2].toLowerCase() === 'k')
-    amount *= 1000;
+  if (amount > 1000000) return 1;
 
   return Math.floor(amount);
 }

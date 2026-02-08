@@ -16,7 +16,7 @@ module.exports = {
       .setTitle("💳 Metode Pembayaran")
       .setDescription(
         "Silakan scan QR di bawah untuk melakukan pembayaran.\n\n" +
-        "Setelah transfer, mohon kirimkan bukti transfer"
+        "Mohon kirimkan bukti transfer"
       )
       .setImage("https://cdn.discordapp.com/attachments/1443358605188534273/1469974670425198612/qr_ID1025454859550_23.12.25_176646784_1766467845652.jpg")
       .setColor("Blue");

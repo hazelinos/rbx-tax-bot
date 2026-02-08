@@ -221,9 +221,6 @@ client.on('messageDelete', msg => {
 
 /* ================ AUTO REPLY ============= */
 
-const fs = require("fs");
-const path = require("path");
-
 const eventsPath = path.join(__dirname, "events");
 const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith(".js"));
 

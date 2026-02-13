@@ -16,10 +16,14 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("📘 SERVER INFORMATION")
+      .setTitle("· · ─ ·SERVER GUIDE· ─ · ·")
       .setDescription(
-        "Silakan pilih tombol di bawah untuk melihat informasi server."
-      )
+  "👋 Welcome to **Nice Blox** 💚\n\n" +
+  "Nice Blox menyediakan berbagai kebutuhan Roblox seperti Robux, item, dll.\n\n" +
+  "📌 Sebelum melakukan transaksi atau berpartisipasi di server, seluruh member **diwajibkan membaca dan memahami rules serta ketentuan yang berlaku**.\n\n" +
+  "Dengan tetap berada di server ini, kamu dianggap telah menyetujui seluruh peraturan yang berlaku.\n\n" +
+  "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+)
       .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(

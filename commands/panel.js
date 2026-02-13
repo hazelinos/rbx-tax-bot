@@ -43,7 +43,7 @@ const embed = new EmbedBuilder()
   });
 
 await interaction.reply({ embeds: [embed] });
-      .setColor("Blue");
+      
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()

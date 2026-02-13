@@ -60,23 +60,23 @@ module.exports = {
         )
         .setColor("Blue");
 
-// ===== CREATE ORDER (Redirect Channel) =====
-if (interaction.customId === "create_order") {
-  return interaction.reply({
-    content: "Please proceed to <1448898303080009890> to create your order.",
-    ephemeral: true
-  });
-}
-
-// ===== CUSTOMER REVIEWS (Redirect Channel) =====
-if (interaction.customId === "customer_reviews") {
-  return interaction.reply({
-    content: "You can view customer feedback in <1448898315411259424>.",
-    ephemeral: true
-  });
-}
-
       return interaction.reply({ embeds: [embed], ephemeral: true });
+    }
+
+    // ===== CREATE ORDER =====
+    if (interaction.customId === "create_order") {
+      return interaction.reply({
+        content: "Please proceed to <#1448898303080009890> to create your order.",
+        ephemeral: true
+      });
+    }
+
+    // ===== CUSTOMER REVIEWS =====
+    if (interaction.customId === "customer_reviews") {
+      return interaction.reply({
+        content: "You can view customer feedback in <#1448898315411259424>.",
+        ephemeral: true
+      });
     }
   }
 };

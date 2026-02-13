@@ -16,7 +16,7 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("━━━━━━━━━━  NICE BLOX SERVER GUIDE  ━━━━━━━━━━")
+      .setTitle("◆ NICE BLOX SERVER GUIDE ◆")
       .setColor("#2B2D31")
 
       .setDescription(
@@ -26,12 +26,11 @@ module.exports = {
       )
 
       .addFields({
-        name: "Discord Official Policies",
-        value:
-          "[Discord Community Guidelines](https://discord.com/guidelines)\n" +
-          "[Discord Terms of Service](https://discord.com/terms)",
-        inline: false
-      });
+  name: "Discord Official Guidelines & TOS",
+  value:
+    "[Discord Guidelines](https://discord.com/guidelines) — [Discord Terms of Service](https://discord.com/terms)",
+  inline: false
+});
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()

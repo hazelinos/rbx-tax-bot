@@ -49,7 +49,7 @@ module.exports = {
         const result = Math.floor(amount * 0.7);
 
         return interaction.reply({
-          content: `You would receive: **${result} Robux**`,
+          content: `You would get: **${result} Robux**`,
           ephemeral: true
         });
       }
@@ -58,7 +58,7 @@ module.exports = {
         const result = Math.ceil(amount / 0.7);
 
         return interaction.reply({
-          content: `You must send: **${result} Robux**`,
+          content: `You would need: **${result} Robux**`,
           ephemeral: true
         });
       }

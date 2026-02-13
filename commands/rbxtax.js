@@ -18,10 +18,7 @@ module.exports = {
     const embed = new EmbedBuilder()
       .setTitle("Robux Tax Calculator")
       .setDescription(
-        `This calculator helps you determine the exact Robux amount before or after Roblox marketplace tax.
-
-
-Select your preferred calculation type below to continue.`
+        `This calculator helps you determine the exact Robux amount before or after Roblox marketplace tax.`
       )
       .setColor("#00A86B");
 

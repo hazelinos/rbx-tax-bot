@@ -49,11 +49,12 @@ module.exports = {
 
     // ===== ROW 2 =====
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("roles")
-        .setLabel("🎭 Role Information")
-        .setStyle(ButtonStyle.Primary)
-    );
+  new ButtonBuilder()
+    .setLabel("Rbx Tax")
+    .setStyle(ButtonStyle.Link)
+    .setURL("https://discord.com/channels/1425182368326488106/1466991311583449301")
+);
+   
 
     // ===== ROW 3 =====
     const row3 = new ActionRowBuilder().addComponents(

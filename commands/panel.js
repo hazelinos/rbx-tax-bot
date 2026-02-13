@@ -16,12 +16,10 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("════ SERVER GUIDE ════")
+      .setTitle("✦  SERVER GUIDE  ✦")
       .setColor("#5865F2")
       .setDescription(
-        "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs.\n\n" +
-        "Before making any transactions or participating in this server, all members are required to read and understand the rules and applicable terms.\n\n" +
-        "By remaining in this server, you agree to comply with all established regulations."
+        "This server provides various Roblox services. Before making transactions or participating in this server, all members are required to read and comply with the applicable rules and terms and conditions."
       )
       .addFields({
         name: "Discord Official Policies",

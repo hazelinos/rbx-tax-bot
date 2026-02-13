@@ -17,7 +17,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("◆ NICE BLOX SERVER GUIDE ◆")
-      .setColor("#2B2D31")
+      .setColor("#5865F2")
       .setDescription(
         "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs. " +
         "Before making any transactions or participating in this server, all members are required to read and understand the rules and applicable terms. " +
@@ -31,6 +31,7 @@ module.exports = {
         inline: false
       });
 
+    // ===== INFO BUTTONS =====
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("rules")
@@ -55,16 +56,17 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
 
+    // ===== ACTION BUTTONS (LINK STYLE) =====
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("create_order")
-        .setLabel("📝 Create Order")
-        .setStyle(ButtonStyle.Primary),
+        .setLabel("🛒 Buy")
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://discord.com/channels/1425182368326488106/1448898303080009890"),
 
       new ButtonBuilder()
-        .setCustomId("customer_reviews")
         .setLabel("⭐ Customer Reviews")
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Link)
+        .setURL("https://discord.com/channels/1425182368326488106/1448898315411259424")
     );
 
     await interaction.reply({

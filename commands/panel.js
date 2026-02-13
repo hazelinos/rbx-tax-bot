@@ -16,11 +16,11 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("◆ NICE BLOX SERVER GUIDE ◆")
+      .setTitle("◈  NICE BLOX SERVER GUIDE  ◈")
       .setColor("#2B2D31")
 
       .setDescription(
-        "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs. " +
+        "This server that offers various Roblox-related services including Robux, items, and other in-game needs. " +
         "Before making any transactions or participating in this server, all members are required to read and understand the rules and applicable terms. " +
         "By remaining in this server, you agree to comply with all established regulations."
       )

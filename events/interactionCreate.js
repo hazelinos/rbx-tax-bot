@@ -11,26 +11,26 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle("📕 Server Rules")
         .setDescription(
-          `📖 Server Rules
-1. Age Requirement (13+)
+          
+`1. **Age Requirement (13+)**
 Wajib berusia 13 tahun ke atas untuk bergabung dan berpartisipasi di server ini.
 
-2. No Spamming
+2. **No Spamming**
 Dilarang melakukan spam atau flood chat dalam bentuk pesan, emoji, gambar, atau mention berlebihan.
 
-3. No Excessive Toxic Behavior
+3. **No Excessive Toxic Behavior**
 Bercanda diperbolehkan secukupnya, namun dilarang bersikap toxic atau berlebihan hingga mengganggu member lain.
 
-4. No NSFW Content
+4. **No NSFW Content**
 Dilarang membagikan konten NSFW atau konten yang tidak pantas dalam bentuk apapun.
 
-5. No Server Promotion
+5. **No Server Promotion**
 Dilarang mempromosikan atau membagikan link server lain tanpa izin.
 
-6. Use Channels Properly
+6. **Use Channels Properly**
 Gunakan setiap channel sesuai dengan fungsi dan kategorinya masing-masing.
 
-7. Follow Discord ToS & Server Rules
+7. **Follow Discord ToS & Server Rules**
 Wajib mengikuti Discord Terms of Service serta seluruh peraturan server yang berlaku.
 
 ⚠️ Pelanggaran terhadap peraturan di atas akan dikenakan sanksi sesuai tingkat kesalahan, berupa peringatan, mute, kick, hingga ban permanen.`

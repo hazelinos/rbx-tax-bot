@@ -16,7 +16,7 @@ module.exports = {
           "3. Respect all members\n" +
           "4. Follow Discord TOS"
         )
-        .setColor("Red");
+        .setColor("#5865F2");
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
@@ -31,7 +31,7 @@ module.exports = {
           "**Q:** Cara hitung tax?\n" +
           "A: Gunakan `/tax jumlah`."
         )
-        .setColor("Yellow");
+        .setColor("#5865F2");
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
@@ -44,7 +44,7 @@ module.exports = {
           "Gunakan QR di channel pembayaran.\n" +
           "Setelah bayar kirim bukti ke admin."
         )
-        .setColor("Green");
+        .setColor("#5865F2");
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
@@ -58,7 +58,7 @@ module.exports = {
           "💎 VIP → Akses khusus\n" +
           "🛡 Admin → Staff"
         )
-        .setColor("Blue");
+        .setColor("#5865F2");
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }

@@ -11,7 +11,7 @@ module.exports = {
       const embed = new EmbedBuilder()
         .setTitle("📕 Server Rules")
         .setDescription(
-          "📖 Server Rules
+          `📖 Server Rules
 1. Age Requirement (13+)
 Wajib berusia 13 tahun ke atas untuk bergabung dan berpartisipasi di server ini.
 
@@ -33,7 +33,7 @@ Gunakan setiap channel sesuai dengan fungsi dan kategorinya masing-masing.
 7. Follow Discord ToS & Server Rules
 Wajib mengikuti Discord Terms of Service serta seluruh peraturan server yang berlaku.
 
-⚠️ Pelanggaran terhadap peraturan di atas akan dikenakan sanksi sesuai tingkat kesalahan, berupa peringatan, mute, kick, hingga ban permanen."
+⚠️ Pelanggaran terhadap peraturan di atas akan dikenakan sanksi sesuai tingkat kesalahan, berupa peringatan, mute, kick, hingga ban permanen.`
         )
         .setColor("#5865F2");
 

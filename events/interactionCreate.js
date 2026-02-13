@@ -63,7 +63,7 @@ module.exports = {
 // ===== CREATE ORDER (Redirect Channel) =====
 if (interaction.customId === "create_order") {
   return interaction.reply({
-    content: "Please proceed to <#CHANNEL_ID_ORDER> to create your order.",
+    content: "Please proceed to <1448898303080009890> to create your order.",
     ephemeral: true
   });
 }
@@ -71,7 +71,7 @@ if (interaction.customId === "create_order") {
 // ===== CUSTOMER REVIEWS (Redirect Channel) =====
 if (interaction.customId === "customer_reviews") {
   return interaction.reply({
-    content: "You can view customer feedback in <#CHANNEL_ID_REVIEWS>.",
+    content: "You can view customer feedback in <1448898315411259424>.",
     ephemeral: true
   });
 }

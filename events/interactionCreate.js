@@ -108,7 +108,7 @@ Jika beli 100 Robux → 100 × 75 = 7.500 rupiah.`
   const embed = new EmbedBuilder()
     .setTitle("# Role Information #")
     .setDescription(
-<@&1469353777118314688>  
+`<@&1469353777118314688>  
 Diberikan kepada client yang telah melakukan pembelian hingga 100.000 Robux.
 
 <@&1448729340513747058>  

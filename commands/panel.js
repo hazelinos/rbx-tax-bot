@@ -15,15 +15,34 @@ module.exports = {
 
   async execute(interaction) {
 
-    const embed = new EmbedBuilder()
-      .setTitle("· · ─ ·SERVER GUIDE· ─ · ·")
-      .setDescription(
-  "👋 Welcome to **Nice Blox** 💚\n\n" +
-  "Nice Blox menyediakan berbagai kebutuhan Roblox seperti Robux, item, dll.\n\n" +
-  "📌 Sebelum melakukan transaksi atau berpartisipasi di server, seluruh member **diwajibkan membaca dan memahami rules serta ketentuan yang berlaku**.\n\n" +
-  "Dengan tetap berada di server ini, kamu dianggap telah menyetujui seluruh peraturan yang berlaku.\n\n" +
-  "━━━━━━━━━━━━━━━━━━━━━━━━━━"
-)
+    const { EmbedBuilder } = require("discord.js");
+
+const embed = new EmbedBuilder()
+  .setTitle("━━━━━━━━━━  NICE BLOX SERVER GUIDE  ━━━━━━━━━━")
+  .setColor("#2B2D31")
+
+  .setDescription(
+    "Nice Blox is a server that offers various Roblox-related services, including Robux, items, and other in-game needs.\n\n" +
+    "Before making any transactions or participating in this server, all members are required to read and understand the rules and applicable terms.\n\n" +
+    "By remaining in this server, you are considered to have agreed to all established regulations.\n\n" +
+    "━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  )
+
+  .addFields(
+    {
+      name: "Discord Official Policies",
+      value:
+        "[Discord Community Guidelines](https://discord.com/guidelines)\n" +
+        "[Discord Terms of Service](https://discord.com/terms)",
+      inline: false
+    }
+  )
+
+  .setFooter({
+    text: "Nice Blox • Official Server Information"
+  });
+
+await interaction.reply({ embeds: [embed] });
       .setColor("Blue");
 
     const row = new ActionRowBuilder().addComponents(

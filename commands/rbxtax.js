@@ -16,10 +16,12 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("💸 Robux Tax Calculator")
+      .setTitle("Robux Tax Calculator")
       .setDescription(
-        "Roblox Marketplace Fee: **30%**\n\n" +
-        "Select calculation type below."
+        "This calculator helps you determine the exact Robux amount before or after Roblox marketplace tax.
+
+
+Select your preferred calculation type below to continue."
       )
       .setColor("#00A86B");
 

@@ -106,31 +106,15 @@ Jika beli 100 Robux → 100 × 75 = 7.500 rupiah.`
     // ===== ROLE INFO =====
     if (interaction.customId === "roles") {
   const embed = new EmbedBuilder()
-    .setTitle("# Role Information #")
+    .setTitle("Role List & Information")
     .setDescription(
-`<@&1469353777118314688>  
-Diberikan kepada client yang telah melakukan pembelian hingga 100.000 Robux.
-
-<@&1448729340513747058>  
-Diberikan kepada client yang telah melakukan pembelian hingga 50.000 Robux.
-
-<@&1448729350961631294>  
-Diberikan kepada client yang telah melakukan pembelian hingga 25.000 Robux.
-
-<@&1448729347404988526>  
-Diberikan kepada client yang telah melakukan pembelian hingga 10.000 Robux.
-
-<@&1441620125739520052>  
-Role untuk member yang telah melakukan transaksi.
-
-<@&1449581791072751676>  
-Role dasar setelah bergabung di server.
-
-<@&1450341943799316532>  
-Untuk menerima notifikasi stok Robux.
-
-<@&1450344322229862502>  
-Untuk menerima notifikasi giveaway.`)
+`<@&1469353777118314688> 
+<@&1448729347404988526> 
+<@&1448729340513747058> 
+<@&1448729350961631294> 
+<@&1441620125739520052> 
+<@&1449581791072751676>
+`)
     .setColor("#5865F2");
 
   return interaction.reply({ embeds: [embed], ephemeral: true });

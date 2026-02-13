@@ -31,7 +31,7 @@ module.exports = {
         inline: false
       });
 
-    // ===== BARIS 1 (INFO UTAMA) =====
+    // ===== ROW 1 =====
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("rules")
@@ -41,34 +41,37 @@ module.exports = {
       new ButtonBuilder()
         .setCustomId("products")
         .setLabel("Product & Services")
-        .setStyle(ButtonStyle.Secondary),
+        .setStyle(ButtonStyle.Secondary)
+    );
 
+    // ===== ROW 2 =====
+    const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("faq")
         .setLabel("Frequently Asked Questions")
-        .setStyle(ButtonStyle.Secondary)
-    );
+        .setStyle(ButtonStyle.Secondary),
 
-    // ===== BARIS 2 (INFO TAMBAHAN) =====
-    const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("payment")
         .setLabel("Payment Methods")
-        .setStyle(ButtonStyle.Success),
+        .setStyle(ButtonStyle.Success)
+    );
 
+    // ===== ROW 3 =====
+    const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("roles")
         .setLabel("Role Information")
-        .setStyle(ButtonStyle.Secondary)
-    );
+        .setStyle(ButtonStyle.Secondary),
 
-    // ===== BARIS 3 (ACTION / REDIRECT) =====
-    const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("create_order")
         .setLabel("Create Order")
-        .setStyle(ButtonStyle.Danger),
+        .setStyle(ButtonStyle.Danger)
+    );
 
+    // ===== ROW 4 =====
+    const row4 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("customer_reviews")
         .setLabel("Customer Reviews")
@@ -77,7 +80,7 @@ module.exports = {
 
     await interaction.reply({
       embeds: [embed],
-      components: [row1, row2, row3]
+      components: [row1, row2, row3, row4]
     });
   }
 };

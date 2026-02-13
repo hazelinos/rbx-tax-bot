@@ -16,7 +16,7 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("◆ NICE BLOX SERVER GUIDE ◆")
+      .setTitle("════════ SERVER GUIDE ════════")
       .setColor("#5865F2")
       .setDescription(
         "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs. " +
@@ -31,7 +31,7 @@ module.exports = {
         inline: false
       });
 
-    // ===== INFO BUTTONS =====
+    // ===== ROW 1 =====
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("rules")
@@ -44,19 +44,15 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
 
+    // ===== ROW 2 =====
     const row2 = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("payment")
-        .setLabel("💳 Payment Methods")
-        .setStyle(ButtonStyle.Primary),
-
       new ButtonBuilder()
         .setCustomId("roles")
         .setLabel("🎭 Role Information")
         .setStyle(ButtonStyle.Primary)
     );
 
-    // ===== ACTION BUTTONS (LINK STYLE) =====
+    // ===== ACTION BUTTONS =====
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setLabel("🛒 Buy")

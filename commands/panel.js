@@ -17,7 +17,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setTitle("═══════ SERVER GUIDE ═══════")
-      .setColor("5865F2")
+      .setColor("#5865F2")
       .setDescription(
         "This server provides various Roblox services. Before conducting any transactions or activities on the server, all members are required to read and comply with the applicable rules."
       )
@@ -29,10 +29,16 @@ module.exports = {
         inline: false
       });
 
+    // ===== ROW 1 =====
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("rules")
         .setLabel("📖 Server Rules")
+        .setStyle(ButtonStyle.Primary),
+
+      new ButtonBuilder()
+        .setCustomId("terms")
+        .setLabel("📜 Terms & Conditions")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
@@ -41,6 +47,7 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
 
+    // ===== ROW 2 =====
     const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("roles")
@@ -48,6 +55,7 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
 
+    // ===== ROW 3 =====
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setLabel("🛒 Buy")
@@ -60,16 +68,13 @@ module.exports = {
         .setURL("https://discord.com/channels/1425182368326488106/1448898315411259424")
     );
 
-    // Defer supaya tidak kelihatan slash usage lama
     await interaction.deferReply({ ephemeral: true });
 
-    // Kirim panel ke channel
     await interaction.channel.send({
       embeds: [embed],
       components: [row1, row2, row3]
     });
 
-    // Hapus notifikasi slash command
     await interaction.deleteReply();
   }
 };

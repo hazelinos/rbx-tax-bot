@@ -16,11 +16,11 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("════════ SERVER GUIDE ════════")
+      .setTitle("════ SERVER GUIDE ════")
       .setColor("#5865F2")
       .setDescription(
-        "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs. " +
-        "Before making any transactions or participating in this server, all members are required to read and understand the rules and applicable terms. " +
+        "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs.\n\n" +
+        "Before making any transactions or participating in this server, all members are required to read and understand the rules and applicable terms.\n\n" +
         "By remaining in this server, you agree to comply with all established regulations."
       )
       .addFields({
@@ -31,7 +31,6 @@ module.exports = {
         inline: false
       });
 
-    // ===== ROW 1 =====
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("rules")
@@ -44,7 +43,6 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
 
-    // ===== ROW 2 =====
     const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("roles")
@@ -52,7 +50,6 @@ module.exports = {
         .setStyle(ButtonStyle.Primary)
     );
 
-    // ===== ACTION BUTTONS =====
     const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setLabel("🛒 Buy")
@@ -65,9 +62,16 @@ module.exports = {
         .setURL("https://discord.com/channels/1425182368326488106/1448898315411259424")
     );
 
-    await interaction.reply({
+    // Defer supaya tidak kelihatan slash usage lama
+    await interaction.deferReply({ ephemeral: true });
+
+    // Kirim panel ke channel
+    await interaction.channel.send({
       embeds: [embed],
       components: [row1, row2, row3]
     });
+
+    // Hapus notifikasi slash command
+    await interaction.deleteReply();
   }
 };

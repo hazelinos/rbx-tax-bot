@@ -35,15 +35,15 @@ module.exports = {
         .setCustomId("rules")
         .setLabel("📖 Server Rules")
         .setStyle(ButtonStyle.Primary),
+      
+      new ButtonBuilder()
+        .setCustomId("faq")
+        .setLabel("❓ FAQ")
+        .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
         .setCustomId("terms")
         .setLabel("📜 Terms & Conditions")
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId("faq")
-        .setLabel("❓ FAQ")
         .setStyle(ButtonStyle.Primary)
     );
 

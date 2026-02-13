@@ -60,6 +60,22 @@ module.exports = {
         )
         .setColor("Blue");
 
+// ===== CREATE ORDER (Redirect Channel) =====
+if (interaction.customId === "create_order") {
+  return interaction.reply({
+    content: "Please proceed to <#CHANNEL_ID_ORDER> to create your order.",
+    ephemeral: true
+  });
+}
+
+// ===== CUSTOMER REVIEWS (Redirect Channel) =====
+if (interaction.customId === "customer_reviews") {
+  return interaction.reply({
+    content: "You can view customer feedback in <#CHANNEL_ID_REVIEWS>.",
+    ephemeral: true
+  });
+}
+
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
   }

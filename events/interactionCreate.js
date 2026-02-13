@@ -55,7 +55,10 @@ Semua transaksi bersifat final dan tidak dapat dibatalkan setelah diproses.
 4. **Responsibility Disclaimer**
 Segala risiko atau permasalahan di luar ketentuan garansi bukan menjadi tanggung jawab kami.
 
-5. **Agreement**
+5. Official Top-Up Recommendation  
+Untuk metode yang lebih aman dan resmi, disarankan melakukan top up langsung melalui Roblox.
+
+6. **Agreement**
 Dengan melakukan pembelian, pembeli dianggap telah membaca, memahami, dan menyetujui seluruh syarat dan ketentuan yang berlaku.`)
         .setColor("#5865F2");
 
@@ -67,17 +70,7 @@ Dengan melakukan pembelian, pembeli dianggap telah membaca, memahami, dan menyet
       const embed = new EmbedBuilder()
         .setTitle("❓ FAQ")
         .setDescription(
-`**✦ How To Order ✦**
-
-1. Buat tiket di <#1448898303080009890> lalu tag <@1122429462621978795>.
-2. Sebutkan produk atau jumlah Robux yang ingin dibeli.
-3. Lakukan pembayaran dan kirim bukti transfer.
-4. Tunggu admin memproses pesanan.
-5. Setelah transaksi selesai, jangan lupa vouch
-
-━━━━━━━━━━━━━━━━━━
-
-**✦ Before Tax, After Tax & GIG ✦**
+`** Apa itu Before Tax, After Tax & GIG ? **
 
 • **Before Tax**
 Robux belum termasuk pajak Roblox (30%).  
@@ -92,11 +85,20 @@ Item atau gamepass dikirim langsung melalui dalam game.
 
 ━━━━━━━━━━━━━━━━━━
 
-**✦ Apa Itu Rate? ✦**
+** Apa Itu Rate? **
 
 Rate adalah harga per 1 Robux.  
 Contoh: rate 75 berarti 1 Robux = 75 rupiah.  
-Jika beli 100 Robux → 100 × 75 = 7.500 rupiah.`
+Jika beli 100 Robux → 100 × 75 = 7.500 rupiah.
+
+** Gimana caranya order? **
+
+1. Buat tiket di <#1448898303080009890> lalu tag <@1122429462621978795>.
+2. Sebutkan produk atau jumlah Robux yang ingin dibeli.
+3. Lakukan pembayaran dan kirim bukti transfer.
+4. Kirim username roblox kamu
+5. Tunggu admin memproses pesanan.
+`
 )
         .setColor("#5865F2");
 
@@ -108,9 +110,9 @@ Jika beli 100 Robux → 100 × 75 = 7.500 rupiah.`
   const embed = new EmbedBuilder()
     .setTitle("Role List & Information")
     .setDescription(
-`<@&1469353777118314688> 
+`<@&1469353777118314688>
 <@&1448729347404988526> 
-<@&1448729340513747058> 
+<@&1448729340513747058>  
 <@&1448729350961631294> 
 <@&1441620125739520052> 
 <@&1449581791072751676>

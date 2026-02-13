@@ -16,7 +16,7 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("════════ SERVER GUIDE ════════")
+      .setTitle("═══════ SERVER GUIDE ═══════")
       .setColor("#5865F2")
       .setDescription(
         "This server provides various Roblox services. Before conducting any transactions or activities on the server, all members are required to read and comply with the applicable rules."

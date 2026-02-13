@@ -22,7 +22,7 @@ module.exports = {
         "This server provides various Roblox services. Before conducting any transactions or activities on the server, all members are required to read and comply with the applicable rules."
       )
       .addFields({
-        name: "Discord Official Policies",
+        name: "__**Discord Official Guidelines & TOS**__",
         value:
           "[Discord Community Guidelines](https://discord.com/guidelines) — " +
           "[Discord Terms of Service](https://discord.com/terms)",

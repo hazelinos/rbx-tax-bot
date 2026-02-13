@@ -16,7 +16,7 @@ module.exports = {
   async execute(interaction) {
 
     const embed = new EmbedBuilder()
-      .setTitle("━━━━━━━━━━  NICE BLOX SERVER GUIDE  ━━━━━━━━━━")
+      .setTitle("◆ NICE BLOX SERVER GUIDE ◆")
       .setColor("#2B2D31")
       .setDescription(
         "Nice Blox is a server that offers various Roblox-related services including Robux, items, and other in-game needs. " +
@@ -31,56 +31,45 @@ module.exports = {
         inline: false
       });
 
-    // ===== ROW 1 =====
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("rules")
-        .setLabel("Server Rules")
+        .setLabel("📖 Server Rules")
         .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
-        .setCustomId("products")
-        .setLabel("Product & Services")
-        .setStyle(ButtonStyle.Secondary)
+        .setCustomId("faq")
+        .setLabel("❓ FAQ")
+        .setStyle(ButtonStyle.Primary)
     );
 
-    // ===== ROW 2 =====
     const row2 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("faq")
-        .setLabel("Frequently Asked Questions")
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
         .setCustomId("payment")
-        .setLabel("Payment Methods")
-        .setStyle(ButtonStyle.Success)
-    );
+        .setLabel("💳 Payment Methods")
+        .setStyle(ButtonStyle.Primary),
 
-    // ===== ROW 3 =====
-    const row3 = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("roles")
-        .setLabel("Role Information")
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId("create_order")
-        .setLabel("Create Order")
-        .setStyle(ButtonStyle.Danger)
+        .setLabel("🎭 Role Information")
+        .setStyle(ButtonStyle.Primary)
     );
 
-    // ===== ROW 4 =====
-    const row4 = new ActionRowBuilder().addComponents(
+    const row3 = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("create_order")
+        .setLabel("📝 Create Order")
+        .setStyle(ButtonStyle.Primary),
+
       new ButtonBuilder()
         .setCustomId("customer_reviews")
-        .setLabel("Customer Reviews")
-        .setStyle(ButtonStyle.Secondary)
+        .setLabel("⭐ Customer Reviews")
+        .setStyle(ButtonStyle.Primary)
     );
 
     await interaction.reply({
       embeds: [embed],
-      components: [row1, row2, row3, row4]
+      components: [row1, row2, row3]
     });
   }
 };

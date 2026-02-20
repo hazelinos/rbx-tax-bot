@@ -2,24 +2,22 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("info")
-    .setDescription("Get Roblox gamepass info from username")
+    .setName("gamepass")
+    .setDescription("Get Roblox gamepasses from username")
     .addStringOption(option =>
-      option.setName("username")
+      option
+        .setName("username")
         .setDescription("Roblox username")
         .setRequired(true)
     ),
 
   async execute(interaction) {
-
     await interaction.deferReply();
 
     const username = interaction.options.getString("username");
 
     try {
-      // ========================
-      // USERNAME → USERID
-      // ========================
+      // STEP 1 — Username → UserId
       const userRes = await fetch(
         "https://users.roblox.com/v1/usernames/users",
         {
@@ -32,118 +30,95 @@ module.exports = {
         }
       );
 
-      if (!userRes.ok) {
-        throw new Error(`User API error: ${userRes.status}`);
-      }
+      if (!userRes.ok) throw new Error(`User fetch failed: ${userRes.status}`);
 
       const userJson = await userRes.json();
 
       if (!userJson.data?.length) {
-        return interaction.editReply("Username tidak ditemukan.");
+        return interaction.editReply("User tidak ditemukan.");
       }
 
       const userId = userJson.data[0].id;
 
-      // ========================
-      // GET USER GAMES (Public experiences)
-      // ========================
+      // STEP 2 — UserId → Universes (Public games)
       const gamesRes = await fetch(
         `https://games.roproxy.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
       );
 
-      if (!gamesRes.ok) {
-        throw new Error(`Games API error: ${gamesRes.status}`);
-      }
+      if (!gamesRes.ok) throw new Error(`Games fetch failed: ${gamesRes.status}`);
 
       const gamesJson = await gamesRes.json();
 
       if (!gamesJson.data?.length) {
-        return interaction.editReply("User tidak memiliki game publik.");
+        return interaction.editReply("Tidak ada game publik yang ditemukan.");
       }
 
       const embed = new EmbedBuilder()
-        .setTitle(`${username}'s Gamepasses`)
-        .setURL(`https://www.roblox.com/users/${userId}/profile`)
+        .setTitle(`Gamepasses dari ${username}`)
         .setColor("#5865F2")
         .setThumbnail(`https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=420&height=420&format=png`)
+        .setURL(`https://www.roblox.com/users/${userId}/profile`)
         .setTimestamp();
 
-      let foundAny = false;
-      let gameNumber = 1;
+      let totalPasses = 0;
+      let fieldsAdded = false;
 
-      // ========================
-      // LOOP EACH GAME
-      // ========================
+      // STEP 3 — Loop universes → Gamepasses via roproxy
       for (const game of gamesJson.data) {
         const universeId = game.id;
+        const gameName = game.name || "Unnamed Game";
 
-        // FIX PLACE ID (rootPlaceId)
-        let placeId = "Unknown";
-        try {
-          const placeRes = await fetch(
-            `https://games.roproxy.com/v1/games?universeIds=${universeId}`
-          );
-          const placeJson = await placeRes.json();
-          if (placeJson.data?.length) {
-            placeId = placeJson.data[0].rootPlaceId;
-          }
-        } catch (e) {
-          console.log(`Gagal ambil placeId untuk universe ${universeId}: ${e}`);
-        }
-
-        // ========================
-        // GET GAMEPASSES (pakai roproxy - working 2026)
-        // ========================
         const passRes = await fetch(
           `https://apis.roproxy.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
         );
 
         if (!passRes.ok) {
-          console.log(`Gamepass API gagal (status ${passRes.status}) untuk universe ${universeId}`);
+          console.log(`Gamepass fetch gagal untuk universe ${universeId} - status: ${passRes.status}`);
           continue;
         }
 
         const passJson = await passRes.json();
 
-        if (!passJson.data || passJson.data.length === 0) {
-          continue;
-        }
+        // Struktur response biasanya { gamePasses: [...] } atau { data: [...] }
+        const passes = passJson.gamePasses || passJson.data || [];
 
-        foundAny = true;
+        if (passes.length === 0) continue;
 
-        let text = `**Place ID:** \`${placeId}\`\n**Universe ID:** \`${universeId}\`\n\n**Gamepasses:**\n`;
+        totalPasses += passes.length;
+        fieldsAdded = true;
 
-        for (const pass of passJson.data) {
-          const price = pass.price !== undefined && pass.price !== null ? `${pass.price} Robux` : "Offsale / Free";
+        let passText = "";
+
+        for (const pass of passes) {
+          const name = pass.name || "Unnamed Pass";
+          const price = pass.price != null ? `${pass.price} Robux` : "Offsale/Free";
           const id = pass.id;
-          const name = pass.name ? pass.name : "Unnamed";
+          const link = `https://www.roblox.com/game-pass/${id}`;
 
-          text += `• ${price} — \`${id}\` (${name})\n`;
+          passText += `• **${name}** — ${price}\n  [Link](${link})\n`;
         }
 
-        // Cek kalau ada pagination (jarang dibutuhkan)
-        if (passJson.nextPageToken) {
-          text += `\n*(Ada lebih dari 100 gamepass – pagination tidak di-handle full)*`;
-        }
+        // Tambah info universe & place jika ada
+        const placeId = game.rootPlace?.id || "Unknown";
 
         embed.addFields({
-          name: `Game ${gameNumber}: ${game.name}`,
-          value: text,
+          name: `${gameName} (Universe: ${universeId} | Place: ${placeId})`,
+          value: passText || "No passes listed",
           inline: false
         });
-
-        gameNumber++;
       }
 
-      if (!foundAny) {
-        return interaction.editReply("Tidak ditemukan gamepass yang tersedia di game publik user ini.");
+      if (!fieldsAdded || totalPasses === 0) {
+        return interaction.editReply("Tidak ditemukan gamepass di game publik user ini.");
       }
+
+      embed.setDescription(`Ditemukan **${totalPasses}** gamepass dari **${gamesJson.data.length}** game.`);
 
       await interaction.editReply({ embeds: [embed] });
 
-    } catch (err) {
-      console.error("Error di command /info:", err);
-      await interaction.editReply("Terjadi error saat mengambil data. Coba lagi nanti atau username salah.");
+    } catch (error) {
+      console.error("Error di /gamepass:", error);
+      await interaction.editReply("Gagal mengambil data. Coba lagi nanti atau username salah.");
     }
   }
 };

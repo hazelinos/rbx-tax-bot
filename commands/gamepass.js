@@ -1,24 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
-// ===== FETCH WITH RETRY (ANTI FAIL & RATE LIMIT) =====
-async function fetchWithRetry(url, options = {}, retries = 3, delay = 700) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const res = await fetch(url, options);
-      if (res.ok) return res;
-
-      console.log(`Fetch retry ${i+1}/${retries} - status ${res.status} - ${url}`);
-
-    } catch (err) {
-      console.log(`Fetch error retry ${i+1}/${retries} - ${url}`);
-    }
-
-    await new Promise(r => setTimeout(r, delay));
-  }
-
-  return null;
-}
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("gamepass")
@@ -30,7 +11,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: false }); // atau true kalau moderator-only
+    await interaction.deferReply({ ephemeral: false });
 
     const username = interaction.options.getString("username");
 
@@ -38,7 +19,7 @@ module.exports = {
 
     try {
       // User ID
-      const userRes = await fetchWithRetry("https://users.roblox.com/v1/usernames/users", {
+      const userRes = await fetch("https://users.roblox.com/v1/usernames/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
@@ -53,9 +34,8 @@ module.exports = {
       // Games list
       let gamesJson = { data: [] };
       try {
-        const gamesRes = await fetchWithRetry(
-  `https://games.roproxy.com/v2/users/${userId}/games?limit=50&sortOrder=Asc`
-);
+        const gamesRes = await fetch(
+          `https://games.roproxy.com/v2/users/${userId}/games?limit=50&sortOrder=Asc`
         );
         if (gamesRes.ok) {
           gamesJson = await gamesRes.json();
@@ -78,73 +58,57 @@ module.exports = {
       if (!gamesJson.data?.length) {
         embed.setDescription("Tidak ada experience terdeteksi (mungkin starter place tidak terindeks atau belum publish apa pun).");
       } else {
+
+        let fullText = "";
+
         for (const game of gamesJson.data) {
-          await new Promise(r => setTimeout(r, 600)); // delay anti-rate limit
+
+          await new Promise(r => setTimeout(r, 600));
 
           const universeId = game.id;
-          const gameName = game.name || "Tempat / Starter Place";
+          const placeId = game.rootPlace?.id || "Unknown";
 
-          let passText = "Tidak ada gamepass.";
           try {
-            const passRes = await fetchWithRetry(
-  `https://apis.roproxy.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
-);
+
+            const passRes = await fetch(
+              `https://apis.roproxy.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
             );
-            if (passRes.ok) {
-              const passJson = await passRes.json();
-              const passes = passJson.gamePasses || passJson.data || [];
-              if (passes.length > 0) {
-                totalPasses += passes.length;
-                passText = "";
-                for (const pass of passes) {
-                  const name = pass.name || "Unnamed";
-                  const price = pass.price != null ? `${pass.price} Robux` : "Offsale/Free";
-                  const link = `https://www.roblox.com/game-pass/${pass.id}`;
-                  passText += `• **${name}** — ${price}\n  [Link](${link})\n`;
-                }
-              }
-            } else {
-              passText = `Gagal ambil pass (status ${passRes.status}).`;
+
+            if (!passRes.ok) {
               console.log(`Pass fail universe ${universeId}: ${passRes.status}`);
+              continue;
             }
+
+            const passJson = await passRes.json();
+            const passes = passJson.gamePasses || passJson.data || [];
+
+            if (!passes.length) continue;
+
+            fullText += `\n**Place ID:** \`${placeId}\`\n`;
+
+            for (const pass of passes) {
+
+              const price = pass.price != null ? pass.price : "Offsale";
+              const id = pass.id;
+
+              fullText += `${price} Robux — \`${id}\`\n`;
+
+              totalPasses++;
+
+            }
+
           } catch (passErr) {
-            passText = "Error saat ambil gamepass.";
             console.error("Pass fetch error:", passErr);
           }
 
-          const placeId = game.rootPlace?.id || "Unknown";
-
-          // SPLIT TEXT AGAR TIDAK LEBIH 1024 CHAR
-
-    const chunks = [];
-   let currentChunk = "";
-
-for (const line of passText.split("\n")) {
-
-  if ((currentChunk + line + "\n").length > 1000) {
-    chunks.push(currentChunk);
-    currentChunk = "";
-  }
-
-  currentChunk += line + "\n";
-}
-
-if (currentChunk) chunks.push(currentChunk);
-
-// kirim per chunk
-chunks.forEach((chunk, index) => {
-  embed.addFields({
-    name: index === 0
-      ? `${gameName} (Universe: ${universeId} | Place: ${placeId})`
-      : "‎", // invisible title
-    value: chunk,
-    inline: false
-  });
-});
-
         }
 
-        embed.setDescription(`Ditemukan **${totalPasses}** gamepass dari **${gamesJson.data.length}** experience.`);
+        if (!fullText) {
+          embed.setDescription("Tidak ada gamepass ditemukan.");
+        } else {
+          embed.setDescription(fullText.slice(0, 4000));
+        }
+
       }
 
       await interaction.editReply({ embeds: [embed] });

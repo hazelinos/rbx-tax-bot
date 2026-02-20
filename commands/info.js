@@ -3,7 +3,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("info")
-    .setDescription("Get Roblox gamepass info")
+    .setDescription("Get gamepass information from a Roblox user")
     .addStringOption(option =>
       option.setName("username")
         .setDescription("Roblox username")
@@ -18,58 +18,51 @@ module.exports = {
 
     try {
 
-      // USERNAME → USERID
+      // USERNAME → USER ID
       const userRes = await fetch(
         "https://users.roblox.com/v1/usernames/users",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ usernames: [username] })
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            usernames: [username],
+            excludeBannedUsers: false
+          })
         }
       );
 
       const userJson = await userRes.json();
 
-      if (!userJson.data?.length)
+      if (!userJson.data || !userJson.data.length)
         return interaction.editReply("Username tidak ditemukan.");
 
       const userId = userJson.data[0].id;
 
 
-      // ✅ GET ALL GAMES WITH CURSOR LOOP
-      let cursor = null;
-      let games = [];
+      // USER ID → GAMES
+      const gamesRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
+      );
 
-      do {
+      const gamesJson = await gamesRes.json();
 
-        const url =
-          `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
-          + (cursor ? `&cursor=${cursor}` : "");
-
-        const res = await fetch(url);
-        const json = await res.json();
-
-        if (json.data)
-          games.push(...json.data);
-
-        cursor = json.nextPageCursor;
-
-      } while (cursor);
-
-
-      if (!games.length)
+      if (!gamesJson.data || !gamesJson.data.length)
         return interaction.editReply("User tidak memiliki game.");
 
+      const games = gamesJson.data;
 
+
+      // EMBED
       const embed = new EmbedBuilder()
         .setTitle(username)
         .setColor("#5865F2");
 
+      let description = "";
 
-      let found = false;
 
-
-      // LOOP ALL UNIVERSES
+      // LOOP SEMUA GAME
       for (const game of games) {
 
         const universeId = game.id;
@@ -86,45 +79,40 @@ module.exports = {
           continue;
 
 
-        found = true;
+        const placeId =
+          game.rootPlace?.id ||
+          game.rootPlaceId ||
+          "Unknown";
 
-        const placeId = game.rootPlace?.id || game.rootPlaceId || "Unknown";
+
+        // PLACE ID
+        description += `Place ID\n\`\`\`\n${placeId}\n\`\`\`\n`;
 
 
-        let text =
-`Place ID
-\`\`\`
-${placeId}
-\`\`\`
-`;
-
+        // GAMEPASSES
         for (const pass of passes) {
 
-          text += `${pass.price} Robux — \`${pass.id}\`\n`;
+          description += `${pass.price} Robux — \`${pass.id}\`\n`;
 
         }
 
-
-        embed.addFields({
-          name: "Gamepasses",
-          value: text
-        });
-
+        description += "\n";
       }
 
 
-      if (!found)
+      if (!description)
         return interaction.editReply("Gamepass tidak ditemukan.");
 
+      embed.setDescription(description);
 
       interaction.editReply({ embeds: [embed] });
 
-
-    } catch (err) {
+    }
+    catch (err) {
 
       console.error(err);
 
-      interaction.editReply("Terjadi error.");
+      interaction.editReply("Terjadi error saat mengambil data.");
 
     }
 

@@ -3,10 +3,9 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("gamepass")
-    .setDescription("Get Roblox gamepasses from username")
+    .setDescription("Get Roblox gamepasses from username (termasuk starter kalau terdeteksi)")
     .addStringOption(option =>
-      option
-        .setName("username")
+      option.setName("username")
         .setDescription("Roblox username")
         .setRequired(true)
     ),
@@ -17,40 +16,28 @@ module.exports = {
     const username = interaction.options.getString("username");
 
     try {
-      // STEP 1 — Username → UserId
-      const userRes = await fetch(
-        "https://users.roblox.com/v1/usernames/users",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            usernames: [username],
-            excludeBannedUsers: false
-          })
-        }
-      );
-
-      if (!userRes.ok) throw new Error(`User fetch failed: ${userRes.status}`);
+      // STEP 1: Username → UserId
+      const userRes = await fetch("https://users.roblox.com/v1/usernames/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+      });
 
       const userJson = await userRes.json();
-
-      if (!userJson.data?.length) {
-        return interaction.editReply("User tidak ditemukan.");
+      if (!userRes.ok || !userJson.data?.length) {
+        return interaction.editReply("User tidak ditemukan atau error saat mencari ID.");
       }
 
       const userId = userJson.data[0].id;
 
-      // STEP 2 — UserId → Universes (Public games)
+      // STEP 2: Get universes (tanpa accessFilter strict)
       const gamesRes = await fetch(
-        `https://games.roproxy.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
+        `https://games.roproxy.com/v2/users/${userId}/games?limit=50&sortOrder=Asc`
       );
 
-      if (!gamesRes.ok) throw new Error(`Games fetch failed: ${gamesRes.status}`);
-
       const gamesJson = await gamesRes.json();
-
-      if (!gamesJson.data?.length) {
-        return interaction.editReply("Tidak ada game publik yang ditemukan.");
+      if (!gamesRes.ok || !gamesJson.data?.length) {
+        return interaction.editReply(`User ${username} ditemukan (ID: ${userId}), tapi tidak ada experience/universe terdeteksi (mungkin starter place tidak terindeks atau belum publish).`);
       }
 
       const embed = new EmbedBuilder()
@@ -61,64 +48,58 @@ module.exports = {
         .setTimestamp();
 
       let totalPasses = 0;
-      let fieldsAdded = false;
 
-      // STEP 3 — Loop universes → Gamepasses via roproxy
       for (const game of gamesJson.data) {
         const universeId = game.id;
-        const gameName = game.name || "Unnamed Game";
+        const gameName = game.name || "Starter Place / Unnamed";
+
+        // Delay kecil untuk hindari rate limit (opsional, uncomment kalau sering error 429)
+        // await new Promise(r => setTimeout(r, 400));
 
         const passRes = await fetch(
           `https://apis.roproxy.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
         );
 
-        if (!passRes.ok) {
-          console.log(`Gamepass fetch gagal untuk universe ${universeId} - status: ${passRes.status}`);
-          continue;
-        }
-
-        const passJson = await passRes.json();
-
-        // Struktur response biasanya { gamePasses: [...] } atau { data: [...] }
-        const passes = passJson.gamePasses || passJson.data || [];
-
-        if (passes.length === 0) continue;
-
-        totalPasses += passes.length;
-        fieldsAdded = true;
-
         let passText = "";
+        let passes = [];
 
-        for (const pass of passes) {
-          const name = pass.name || "Unnamed Pass";
-          const price = pass.price != null ? `${pass.price} Robux` : "Offsale/Free";
-          const id = pass.id;
-          const link = `https://www.roblox.com/game-pass/${id}`;
-
-          passText += `• **${name}** — ${price}\n  [Link](${link})\n`;
+        if (passRes.ok) {
+          const passJson = await passRes.json();
+          passes = passJson.gamePasses || passJson.data || [];
+        } else {
+          console.log(`Pass fetch skip untuk universe ${universeId} - status: ${passRes.status}`);
+          passText = "Gagal ambil gamepass (API error).";
         }
 
-        // Tambah info universe & place jika ada
+        if (passes.length > 0) {
+          totalPasses += passes.length;
+          for (const pass of passes) {
+            const name = pass.name || "Unnamed";
+            const price = pass.price != null ? `${pass.price} Robux` : "Offsale/Free";
+            const id = pass.id;
+            const link = `https://www.roblox.com/game-pass/${id}`;
+            passText += `• **${name}** — ${price}\n  [Link](${link})\n`;
+          }
+        } else if (passText === "") {
+          passText = "Tidak ada gamepass terdeteksi.";
+        }
+
         const placeId = game.rootPlace?.id || "Unknown";
 
         embed.addFields({
           name: `${gameName} (Universe: ${universeId} | Place: ${placeId})`,
-          value: passText || "No passes listed",
+          value: passText.trim(),
           inline: false
         });
       }
 
-      if (!fieldsAdded || totalPasses === 0) {
-        return interaction.editReply("Tidak ditemukan gamepass di game publik user ini.");
-      }
-
-      embed.setDescription(`Ditemukan **${totalPasses}** gamepass dari **${gamesJson.data.length}** game.`);
+      embed.setDescription(`Ditemukan **${totalPasses}** gamepass dari **${gamesJson.data.length}** experience.`);
 
       await interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
-      console.error("Error di /gamepass:", error);
-      await interaction.editReply("Gagal mengambil data. Coba lagi nanti atau username salah.");
+      console.error("Error fatal di /gamepass:", error);
+      await interaction.editReply("Terjadi error internal saat mengambil data. Coba lagi nanti, atau cek apakah username benar.");
     }
   }
 };

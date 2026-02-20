@@ -1,6 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("info")
@@ -63,14 +62,16 @@ module.exports = {
 
         const passJson = await passRes.json();
 
-        if (!passJson.data || passJson.data.length === 0)
+        const passes = passJson.data || passJson.gamePasses || [];
+
+        if (!passes.length)
           continue;
 
         foundAny = true;
 
         let text = "";
 
-        for (const pass of passJson.data) {
+        for (const pass of passes) {
 
           text += `${pass.price} Robux — ${pass.id}\n`;
 
@@ -85,7 +86,7 @@ module.exports = {
       }
 
       if (!foundAny)
-        return interaction.editReply("Tidak ada gamepass ditemukan.");
+        return interaction.editReply("Gamepass tidak ditemukan.");
 
       interaction.editReply({ embeds: [embed] });
 

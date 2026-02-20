@@ -18,9 +18,9 @@ module.exports = {
 
     try {
 
-      // ================================
-      // USERNAME → USER ID
-      // ================================
+      // ========================
+      // USERNAME → USERID
+      // ========================
 
       const userRes = await fetch(
         "https://users.roblox.com/v1/usernames/users",
@@ -36,43 +36,25 @@ module.exports = {
 
       const userJson = await userRes.json();
 
-      if (!userJson.data || !userJson.data.length)
+      if (!userJson.data?.length)
         return interaction.editReply("Username tidak ditemukan.");
 
       const userId = userJson.data[0].id;
 
 
-      // ================================
-      // GET ALL USER GAMES (pagination)
-      // ================================
+      // ========================
+      // GET USER GAMES
+      // ========================
 
-      let games = [];
-      let cursor = null;
+      const gamesRes = await fetch(
+        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
+      );
 
-      do {
+      const gamesJson = await gamesRes.json();
 
-        const url =
-          `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
-          + (cursor ? `&cursor=${cursor}` : "");
-
-        const res = await fetch(url);
-        const json = await res.json();
-
-        if (json.data)
-          games.push(...json.data);
-
-        cursor = json.nextPageCursor;
-
-      } while (cursor);
-
-
-      if (!games.length)
+      if (!gamesJson.data?.length)
         return interaction.editReply("User tidak memiliki game.");
 
-
-      // ================================
-      // CREATE EMBED
-      // ================================
 
       const embed = new EmbedBuilder()
         .setTitle(username)
@@ -83,19 +65,15 @@ module.exports = {
       let gameNumber = 1;
 
 
-      // ================================
-      // LOOP ALL GAMES
-      // ================================
+      // ========================
+      // LOOP EACH GAME
+      // ========================
 
-      for (const game of games) {
+      for (const game of gamesJson.data) {
 
         const universeId = game.id;
 
-
-        // ================================
-        // GET PLACE ID (FIX undefined)
-        // ================================
-
+        // FIX PLACE ID
         let placeId = "Unknown";
 
         try {
@@ -106,52 +84,32 @@ module.exports = {
 
           const placeJson = await placeRes.json();
 
-          if (placeJson.data && placeJson.data.length)
+          if (placeJson.data?.length)
             placeId = placeJson.data[0].rootPlaceId;
 
         } catch {}
 
 
-        // ================================
-        // GET GAMEPASSES
-        // ================================
+        // ========================
+        // GET GAMEPASSES (WORKING API)
+        // ========================
 
-        let passCursor = null;
-        let passes = [];
+        const passRes = await fetch(
+          `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
+        );
 
-        do {
+        const passJson = await passRes.json();
 
-          const passUrl =
-            `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
-            + (passCursor ? `&pageToken=${passCursor}` : "");
-
-          const passRes = await fetch(passUrl);
-          const passJson = await passRes.json();
-
-          if (passJson.data)
-            passes.push(...passJson.data);
-
-          passCursor = passJson.nextPageToken;
-
-        } while (passCursor);
-
-
-        if (!passes.length)
+        if (!passJson.data?.length)
           continue;
 
 
         foundAny = true;
 
 
-        // ================================
-        // FORMAT TEXT
-        // ================================
+        let text = `Place ID:\n\`${placeId}\`\n\n`;
 
-        let text = "";
-
-        text += `Place ID:\n\`${placeId}\`\n\n`;
-
-        for (const pass of passes) {
+        for (const pass of passJson.data) {
 
           const price = pass.price ?? "Offsale";
 
@@ -172,17 +130,9 @@ module.exports = {
       }
 
 
-      // ================================
-      // NO GAMEPASS FOUND
-      // ================================
-
       if (!foundAny)
         return interaction.editReply("Gamepass tidak ditemukan.");
 
-
-      // ================================
-      // SEND EMBED
-      // ================================
 
       interaction.editReply({
         embeds: [embed]
@@ -193,9 +143,7 @@ module.exports = {
 
       console.error(err);
 
-      interaction.editReply(
-        "Terjadi error saat mengambil data."
-      );
+      interaction.editReply("Terjadi error.");
 
     }
 

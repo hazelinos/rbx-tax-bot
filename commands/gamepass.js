@@ -90,15 +90,10 @@ passes.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
 
 for (const pass of passes) {
 
-  let priceText;
+  const price = pass.price != null ? `${pass.price} Robux` : "Offsale";
+const id = pass.id;
 
-if (pass.price != null) {
-  priceText = `${pass.price} Robux`;
-} else {
-  priceText = "Offsale";
-}
-
-fullText += `${priceText} — ${id}\n`;
+fullText += `${price} — ${id}\n`;
 
   totalPasses++;
 

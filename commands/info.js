@@ -35,21 +35,22 @@ module.exports = {
 
       const userId = userJson.data[0].id;
 
-      // GET ALL GAMES WITH PAGINATION
-      let cursor = "";
+
+      // ✅ GET ALL GAMES WITH CURSOR LOOP
+      let cursor = null;
       let games = [];
 
       do {
 
-        const res = await fetch(
-          `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc&cursor=${cursor}`
-        );
+        const url =
+          `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
+          + (cursor ? `&cursor=${cursor}` : "");
 
+        const res = await fetch(url);
         const json = await res.json();
 
-        if (!json.data) break;
-
-        games.push(...json.data);
+        if (json.data)
+          games.push(...json.data);
 
         cursor = json.nextPageCursor;
 
@@ -59,16 +60,19 @@ module.exports = {
       if (!games.length)
         return interaction.editReply("User tidak memiliki game.");
 
+
       const embed = new EmbedBuilder()
         .setTitle(username)
         .setColor("#5865F2");
 
+
       let found = false;
 
+
+      // LOOP ALL UNIVERSES
       for (const game of games) {
 
         const universeId = game.id;
-        const placeId = game.rootPlace?.id || "Unknown";
 
         const passRes = await fetch(
           `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
@@ -76,35 +80,51 @@ module.exports = {
 
         const passJson = await passRes.json();
 
-        if (!passJson.gamePasses?.length)
+        const passes = passJson.gamePasses || [];
+
+        if (!passes.length)
           continue;
+
 
         found = true;
 
-        let text = "";
+        const placeId = game.rootPlace?.id || game.rootPlaceId || "Unknown";
 
-        for (const pass of passJson.gamePasses) {
+
+        let text =
+`Place ID
+\`\`\`
+${placeId}
+\`\`\`
+`;
+
+        for (const pass of passes) {
 
           text += `${pass.price} Robux — \`${pass.id}\`\n`;
 
         }
 
+
         embed.addFields({
-          name: `Place ID: \`${placeId}\``,
+          name: "Gamepasses",
           value: text
         });
 
       }
 
+
       if (!found)
         return interaction.editReply("Gamepass tidak ditemukan.");
 
+
       interaction.editReply({ embeds: [embed] });
+
 
     } catch (err) {
 
       console.error(err);
-      interaction.editReply("Error mengambil data.");
+
+      interaction.editReply("Terjadi error.");
 
     }
 

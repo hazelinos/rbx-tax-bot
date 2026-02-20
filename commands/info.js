@@ -35,7 +35,7 @@ module.exports = {
 
       const userId = userJson.data[0].id;
 
-      // USERID → GAMES
+      // GET USER GAMES
       const gamesRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
       );
@@ -46,7 +46,7 @@ module.exports = {
         return interaction.editReply("User tidak memiliki game.");
 
       const embed = new EmbedBuilder()
-        .setTitle(`Informasi milik ${username}`)
+        .setTitle(username)
         .setColor("#5865F2");
 
       let foundAny = false;
@@ -54,8 +54,17 @@ module.exports = {
       for (const game of gamesJson.data) {
 
         const universeId = game.id;
-        const placeId = game.rootPlaceId;
 
+        // GET PLACE ID (FIX)
+        const placeRes = await fetch(
+          `https://games.roblox.com/v1/games?universeIds=${universeId}`
+        );
+
+        const placeJson = await placeRes.json();
+
+        const placeId = placeJson.data?.[0]?.rootPlaceId;
+
+        // GET GAMEPASSES
         const passRes = await fetch(
           `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
         );
@@ -69,18 +78,17 @@ module.exports = {
 
         foundAny = true;
 
-        let text = "";
+        let text = `Place ID:\n\`\`\`\n${placeId}\n\`\`\`\n\n`;
 
         for (const pass of passes) {
 
-          text += `${pass.price} Robux — ${pass.id}\n`;
+          text += `${pass.price} Robux — \`${pass.id}\`\n`;
 
         }
 
         embed.addFields({
-          name: `Place ID: ${placeId}`,
-          value: text,
-          inline: false
+          name: "Gamepasses",
+          value: text
         });
 
       }

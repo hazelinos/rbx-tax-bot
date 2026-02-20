@@ -84,18 +84,18 @@ module.exports = {
 
             if (!passes.length) continue;
 
-            fullText += `\n**Place ID:** \${placeId}\\n`;
+            fullText += `\n**Place ID:** ${placeId}\n`;
 
-            for (const pass of passes) {
+for (const pass of passes) {
 
-              const price = pass.price != null ? pass.price : "Offsale";
-              const id = pass.id;
+  const price = pass.price != null ? pass.price : "Offsale";
+  const id = pass.id;
 
-              fullText += `${price} Robux — \${id}\\n`;
+  fullText += `${price} Robux — ${id}\n`;
 
-              totalPasses++;
+  totalPasses++;
 
-            }
+}
 
           } catch (passErr) {
             console.error("Pass fetch error:", passErr);

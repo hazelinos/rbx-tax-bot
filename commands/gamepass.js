@@ -60,23 +60,31 @@ module.exports = {
       // STEP 3 — get gamepasses
       for (const game of universeJson.data) {
 
-        const universeId = game.id;
+  const universeId = game.id;
 
-        const passRes = await fetch(
-          `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100`
-        );
+  try {
 
-        const passJson = await passRes.json();
+    const passRes = await fetch(
+      `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100&sortOrder=Asc`
+    );
 
-        for (const pass of passJson.data) {
+    const passJson = await passRes.json();
 
-          allPasses.push(
-            `**${pass.name}** — ${pass.price} Robux\nhttps://www.roblox.com/game-pass/${pass.id}`
-          );
+    if (!passJson.data) continue;
 
-        }
+    for (const pass of passJson.data) {
 
-      }
+      allPasses.push(
+        `**${pass.name}** — ${pass.price} Robux\nhttps://www.roblox.com/game-pass/${pass.id}`
+      );
+
+    }
+
+  } catch {
+    continue;
+  }
+
+}
 
 
       if (!allPasses.length)

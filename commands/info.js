@@ -3,7 +3,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("info")
-    .setDescription("Get gamepass information from a Roblox user")
+    .setDescription("Get Roblox gamepass info")
     .addStringOption(option =>
       option.setName("username")
         .setDescription("Roblox username")
@@ -35,88 +35,68 @@ module.exports = {
 
       const userId = userJson.data[0].id;
 
-      // GET USER GAMES
-      const gamesRes = await fetch(
-        `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
-      );
+      // GET GAMEPASSES DIRECTLY
+      let cursor = "";
+      let passes = [];
 
-      const gamesJson = await gamesRes.json();
+      do {
 
-      if (!gamesJson.data.length)
-        return interaction.editReply("User tidak memiliki game.");
+        const res = await fetch(
+          `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=100&sortOrder=Asc&cursor=${cursor}`
+        );
+
+        const json = await res.json();
+
+        passes.push(...json.data);
+
+        cursor = json.nextPageCursor;
+
+      } while (cursor);
+
+      if (!passes.length)
+        return interaction.editReply("Gamepass tidak ditemukan.");
+
+      // GROUP BY PLACE ID
+      const grouped = {};
+
+      for (const pass of passes) {
+
+        const placeId = pass.assetId;
+
+        if (!grouped[placeId])
+          grouped[placeId] = [];
+
+        grouped[placeId].push(pass);
+
+      }
 
       const embed = new EmbedBuilder()
         .setTitle(username)
         .setColor("#5865F2");
 
-      let foundAny = false;
+      for (const placeId in grouped) {
 
-      for (const game of gamesJson.data) {
+        let text = "";
 
-        const universeId = game.id;
+        for (const pass of grouped[placeId]) {
 
-        // GET PLACE ID
-        const placeRes = await fetch(
-          `https://games.roblox.com/v1/games?universeIds=${universeId}`
-        );
-
-        const placeJson = await placeRes.json();
-        const placeId = placeJson.data?.[0]?.rootPlaceId || "Unknown";
-
-        // PAGINATION SUPPORT
-        let pageToken = "";
-        let passes = [];
-
-        do {
-
-          const passRes = await fetch(
-            `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100&pageToken=${pageToken}`
-          );
-
-          const passJson = await passRes.json();
-
-          const newPasses = passJson.data || passJson.gamePasses || [];
-
-          passes.push(...newPasses);
-
-          pageToken = passJson.nextPageToken || "";
-
-        } while (pageToken);
-
-        if (!passes.length)
-          continue;
-
-        foundAny = true;
-
-        let text =
-`Place ID
-\`\`\`
-${placeId}
-\`\`\`
-`;
-
-        for (const pass of passes) {
-
-          text += `${pass.price} Robux — \`${pass.id}\`\n`;
+          text += `${pass.price || "Unknown"} Robux — \`${pass.id}\`\n`;
 
         }
 
         embed.addFields({
-          name: "Gamepasses",
+          name: `Gamepasses`,
           value: text
         });
 
       }
-
-      if (!foundAny)
-        return interaction.editReply("Gamepass tidak ditemukan.");
 
       interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
 
       console.error(err);
-      interaction.editReply("Error mengambil data.");
+      interaction.editReply("Error mengambil gamepass.");
 
     }
 

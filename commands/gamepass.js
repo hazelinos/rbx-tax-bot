@@ -47,7 +47,7 @@ module.exports = {
       }
 
       const embed = new EmbedBuilder()
-        .setTitle(`Gamepasses dari ${username}`)
+        .setTitle(`Gamepass milik ${username}`)
         .setColor("#5865F2")
         .setThumbnail(`https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=420&height=420&format=png`)
         .setURL(`https://www.roblox.com/users/${userId}/profile`)

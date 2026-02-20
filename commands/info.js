@@ -30,73 +30,81 @@ module.exports = {
 
       const userJson = await userRes.json();
 
-      if (!userJson.data.length)
+      if (!userJson.data?.length)
         return interaction.editReply("Username tidak ditemukan.");
 
       const userId = userJson.data[0].id;
 
-      // GET GAMEPASSES DIRECTLY
+      // GET ALL GAMES WITH PAGINATION
       let cursor = "";
-      let passes = [];
+      let games = [];
 
       do {
 
         const res = await fetch(
-          `https://inventory.roblox.com/v1/users/${userId}/items/GamePass?limit=100&sortOrder=Asc&cursor=${cursor}`
+          `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc&cursor=${cursor}`
         );
 
         const json = await res.json();
 
-        passes.push(...json.data);
+        if (!json.data) break;
+
+        games.push(...json.data);
 
         cursor = json.nextPageCursor;
 
       } while (cursor);
 
-      if (!passes.length)
-        return interaction.editReply("Gamepass tidak ditemukan.");
 
-      // GROUP BY PLACE ID
-      const grouped = {};
-
-      for (const pass of passes) {
-
-        const placeId = pass.assetId;
-
-        if (!grouped[placeId])
-          grouped[placeId] = [];
-
-        grouped[placeId].push(pass);
-
-      }
+      if (!games.length)
+        return interaction.editReply("User tidak memiliki game.");
 
       const embed = new EmbedBuilder()
         .setTitle(username)
         .setColor("#5865F2");
 
-      for (const placeId in grouped) {
+      let found = false;
+
+      for (const game of games) {
+
+        const universeId = game.id;
+        const placeId = game.rootPlace?.id || "Unknown";
+
+        const passRes = await fetch(
+          `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
+        );
+
+        const passJson = await passRes.json();
+
+        if (!passJson.gamePasses?.length)
+          continue;
+
+        found = true;
 
         let text = "";
 
-        for (const pass of grouped[placeId]) {
+        for (const pass of passJson.gamePasses) {
 
-          text += `${pass.price || "Unknown"} Robux — \`${pass.id}\`\n`;
+          text += `${pass.price} Robux — \`${pass.id}\`\n`;
 
         }
 
         embed.addFields({
-          name: `Gamepasses`,
+          name: `Place ID: \`${placeId}\``,
           value: text
         });
 
       }
+
+      if (!found)
+        return interaction.editReply("Gamepass tidak ditemukan.");
 
       interaction.editReply({ embeds: [embed] });
 
     } catch (err) {
 
       console.error(err);
-      interaction.editReply("Error mengambil gamepass.");
+      interaction.editReply("Error mengambil data.");
 
     }
 

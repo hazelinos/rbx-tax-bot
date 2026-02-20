@@ -84,6 +84,8 @@ module.exports = {
 
             if (!passes.length) continue;
 
+passes.sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+
             fullText += `\n**Place ID:** ${placeId}\n`;
 
 for (const pass of passes) {

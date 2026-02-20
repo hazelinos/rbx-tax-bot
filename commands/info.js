@@ -3,7 +3,7 @@ const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("info")
-    .setDescription("Get gamepass info from Roblox user")
+    .setDescription("Get Roblox gamepass info")
     .addStringOption(option =>
       option.setName("username")
         .setDescription("Roblox username")
@@ -18,7 +18,7 @@ module.exports = {
 
     try {
 
-      // username → userid
+      // USERNAME → USERID
       const userRes = await fetch(
         "https://users.roblox.com/v1/usernames/users",
         {
@@ -33,20 +33,20 @@ module.exports = {
 
       const userJson = await userRes.json();
 
-      if (!userJson.data.length)
+      if (!userJson.data?.length)
         return interaction.editReply("Username tidak ditemukan.");
 
       const userId = userJson.data[0].id;
 
 
-      // userid → games
+      // USERID → GAMES
       const gamesRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?accessFilter=2&limit=50&sortOrder=Asc`
       );
 
       const gamesJson = await gamesRes.json();
 
-      if (!gamesJson.data.length)
+      if (!gamesJson.data?.length)
         return interaction.editReply("User tidak memiliki game.");
 
 
@@ -55,61 +55,81 @@ module.exports = {
         .setColor("#5865F2");
 
 
-      let totalGameWithPass = 0;
+      let found = false;
+      let gameIndex = 1;
 
 
       for (const game of gamesJson.data) {
 
         const universeId = game.id;
 
-        // universe → placeId
-        const universeRes = await fetch(
+        // UNIVERSE → PLACEID
+        const uniRes = await fetch(
           `https://games.roblox.com/v1/games?universeIds=${universeId}`
         );
 
-        const universeJson = await universeRes.json();
+        const uniJson = await uniRes.json();
 
-        if (!universeJson.data.length)
+        if (!uniJson.data?.length)
           continue;
 
-        const placeId = universeJson.data[0].rootPlaceId;
+        const placeId = uniJson.data[0].rootPlaceId;
 
 
-        // universe → gamepass
-        const passRes = await fetch(
-          `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
-        );
+        // AMBIL SEMUA GAMEPASS (pagination)
+        let passes = [];
+        let nextToken = null;
 
-        const passJson = await passRes.json();
+        do {
 
-        if (!passJson.gamePasses || passJson.gamePasses.length === 0)
+          let url =
+            `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`;
+
+          if (nextToken)
+            url += `&pageToken=${nextToken}`;
+
+          const passRes = await fetch(url);
+          const passJson = await passRes.json();
+
+          if (passJson.gamePasses)
+            passes.push(...passJson.gamePasses);
+
+          nextToken = passJson.nextPageToken;
+
+        } while (nextToken);
+
+
+        if (!passes.length)
           continue;
 
 
-        totalGameWithPass++;
+        found = true;
 
 
-        // buat text game ini
-        let text = `Place ID:\n\`\`\`\n${placeId}\n\`\`\`\n`;
+        let text =
+          `Place ID:\n\`\`\`\n${placeId}\n\`\`\`\n`;
 
-        for (const pass of passJson.gamePasses) {
+
+        for (const pass of passes) {
 
           text += `${pass.price} Robux — \`${pass.id}\`\n`;
 
         }
 
 
-        // tambahkan sebagai field baru
         embed.addFields({
-          name: `Game ${totalGameWithPass}`,
+          name: `Game ${gameIndex}`,
           value: text,
           inline: false
         });
 
+
+        gameIndex++;
+
       }
 
 
-      if (totalGameWithPass === 0)
+      if (!found)
         return interaction.editReply("Gamepass tidak ditemukan.");
 
 
@@ -121,7 +141,7 @@ module.exports = {
     catch (err) {
 
       console.error(err);
-      interaction.editReply("Error saat mengambil data.");
+      interaction.editReply("Error mengambil data.");
 
     }
 

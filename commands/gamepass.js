@@ -1,5 +1,24 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 
+// ===== FETCH WITH RETRY (ANTI FAIL & RATE LIMIT) =====
+async function fetchWithRetry(url, options = {}, retries = 3, delay = 700) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok) return res;
+
+      console.log(`Fetch retry ${i+1}/${retries} - status ${res.status} - ${url}`);
+
+    } catch (err) {
+      console.log(`Fetch error retry ${i+1}/${retries} - ${url}`);
+    }
+
+    await new Promise(r => setTimeout(r, delay));
+  }
+
+  return null;
+}
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("gamepass")
@@ -19,7 +38,7 @@ module.exports = {
 
     try {
       // User ID
-      const userRes = await fetch("https://users.roblox.com/v1/usernames/users", {
+      const userRes = await fetchWithRetry("https://users.roblox.com/v1/usernames/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
@@ -34,8 +53,9 @@ module.exports = {
       // Games list
       let gamesJson = { data: [] };
       try {
-        const gamesRes = await fetch(
-          `https://games.roproxy.com/v2/users/${userId}/games?limit=50&sortOrder=Asc`
+        const gamesRes = await fetchWithRetry(
+  `https://games.roproxy.com/v2/users/${userId}/games?limit=50&sortOrder=Asc`
+);
         );
         if (gamesRes.ok) {
           gamesJson = await gamesRes.json();
@@ -66,8 +86,9 @@ module.exports = {
 
           let passText = "Tidak ada gamepass.";
           try {
-            const passRes = await fetch(
-              `https://apis.roproxy.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
+            const passRes = await fetchWithRetry(
+  `https://apis.roproxy.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
+);
             );
             if (passRes.ok) {
               const passJson = await passRes.json();

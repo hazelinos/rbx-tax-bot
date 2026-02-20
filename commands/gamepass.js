@@ -113,11 +113,35 @@ module.exports = {
           }
 
           const placeId = game.rootPlace?.id || "Unknown";
-          embed.addFields({
-            name: `${gameName} (Universe: ${universeId} | Place: ${placeId})`,
-            value: passText.trim(),
-            inline: false
-          });
+
+          // SPLIT TEXT AGAR TIDAK LEBIH 1024 CHAR
+
+    const chunks = [];
+   let currentChunk = "";
+
+for (const line of passText.split("\n")) {
+
+  if ((currentChunk + line + "\n").length > 1000) {
+    chunks.push(currentChunk);
+    currentChunk = "";
+  }
+
+  currentChunk += line + "\n";
+}
+
+if (currentChunk) chunks.push(currentChunk);
+
+// kirim per chunk
+chunks.forEach((chunk, index) => {
+  embed.addFields({
+    name: index === 0
+      ? `${gameName} (Universe: ${universeId} | Place: ${placeId})`
+      : "‎", // invisible title
+    value: chunk,
+    inline: false
+  });
+});
+
         }
 
         embed.setDescription(`Ditemukan **${totalPasses}** gamepass dari **${gamesJson.data.length}** experience.`);

@@ -51,7 +51,7 @@ module.exports = {
         .setColor("#5865F2")
         .setThumbnail(`https://www.roblox.com/headshot-thumbnail/image?userId=${userId}&width=420&height=420&format=png`)
         .setURL(`https://www.roblox.com/users/${userId}/profile`)
-        .setTimestamp();
+       
 
       let totalPasses = 0;
 
@@ -84,14 +84,14 @@ module.exports = {
 
             if (!passes.length) continue;
 
-            fullText += `\n**Place ID:** \`${placeId}\`\n`;
+            fullText += `\n**Place ID:** \${placeId}\\n`;
 
             for (const pass of passes) {
 
               const price = pass.price != null ? pass.price : "Offsale";
               const id = pass.id;
 
-              fullText += `${price} Robux — \`${id}\`\n`;
+              fullText += `${price} Robux — \${id}\\n`;
 
               totalPasses++;
 

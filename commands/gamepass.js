@@ -7,9 +7,10 @@ module.exports = {
 
   data: new SlashCommandBuilder()
     .setName("gamepass")
-    .setDescription("Get gamepasses from Roblox username")
+    .setDescription("Get Roblox gamepasses from username")
     .addStringOption(option =>
-      option.setName("username")
+      option
+        .setName("username")
         .setDescription("Roblox username")
         .setRequired(true)
     ),
@@ -22,7 +23,7 @@ module.exports = {
 
     try {
 
-      // STEP 1 — get user id
+      // STEP 1 — Username → UserId
       const userRes = await fetch(
         "https://users.roblox.com/v1/usernames/users",
         {
@@ -31,80 +32,88 @@ module.exports = {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            usernames: [username]
+            usernames: [username],
+            excludeBannedUsers: false
           })
         }
       );
 
       const userJson = await userRes.json();
 
-      if (!userJson.data.length)
+      if (!userJson.data || userJson.data.length === 0) {
         return interaction.editReply("User not found.");
+      }
 
       const userId = userJson.data[0].id;
 
 
-      // STEP 2 — get universes
-      const universeRes = await fetch(
+      // STEP 2 — UserId → Universes
+      const gamesRes = await fetch(
         `https://games.roblox.com/v2/users/${userId}/games?limit=50&sortOrder=Asc`
       );
 
-      const universeJson = await universeRes.json();
+      const gamesJson = await gamesRes.json();
 
-      if (!universeJson.data.length)
+      if (!gamesJson.data || gamesJson.data.length === 0) {
         return interaction.editReply("No games found.");
+      }
+
 
       let allPasses = [];
 
 
-      // STEP 3 — get gamepasses
-      for (const game of universeJson.data) {
+      // STEP 3 — Universe → Gamepasses (NEW API)
+      for (const game of gamesJson.data) {
 
-  const universeId = game.id;
+        const universeId = game.id;
 
-  try {
+        const passRes = await fetch(
+          `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
+        );
 
-    const passRes = await fetch(
-      `https://games.roblox.com/v1/games/${universeId}/game-passes?limit=100&sortOrder=Asc`
-    );
+        const passJson = await passRes.json();
 
-    const passJson = await passRes.json();
+        if (!passJson.gamePasses) continue;
 
-    if (!passJson.data) continue;
+        for (const pass of passJson.gamePasses) {
 
-    for (const pass of passJson.data) {
+          const name = pass.name;
+          const price = pass.price;
+          const id = pass.id;
 
-      allPasses.push(
-        `**${pass.name}** — ${pass.price} Robux\nhttps://www.roblox.com/game-pass/${pass.id}`
-      );
+          const link = `https://www.roblox.com/game-pass/${id}`;
 
-    }
+          allPasses.push(
+            `**${name}** — ${price} Robux\n${link}`
+          );
 
-  } catch {
-    continue;
-  }
+        }
 
-}
+      }
 
 
-      if (!allPasses.length)
+      if (allPasses.length === 0) {
         return interaction.editReply("No gamepasses found.");
+      }
 
 
+      // LIMIT 10 biar gak terlalu panjang
       const embed = new EmbedBuilder()
         .setTitle(`Gamepasses for ${username}`)
-        .setDescription(allPasses.slice(0,10).join("\n\n"))
-        .setColor("#5865F2");
+        .setColor("#5865F2")
+        .setDescription(
+          allPasses.slice(0, 10).join("\n\n")
+        );
 
 
-      interaction.editReply({
+      await interaction.editReply({
         embeds: [embed]
       });
 
     }
-    catch (err) {
+    catch (error) {
 
-      console.log(err);
+      console.log(error);
 
       interaction.editReply(
         "Failed to fetch gamepasses."

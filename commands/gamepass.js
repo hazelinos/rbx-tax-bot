@@ -99,7 +99,7 @@ module.exports = {
 
       // LIMIT 10 biar gak terlalu panjang
       const embed = new EmbedBuilder()
-        .setTitle(`Gamepasses for ${username}`)
+        .setTitle(`Gamepasses milik ${username}`)
         .setColor("#5865F2")
         .setDescription(
           allPasses.slice(0, 10).join("\n\n")

@@ -55,30 +55,45 @@ module.exports = {
 
         const universeId = game.id;
 
-        // GET PLACE ID (FIX)
+        // GET PLACE ID
         const placeRes = await fetch(
           `https://games.roblox.com/v1/games?universeIds=${universeId}`
         );
 
         const placeJson = await placeRes.json();
+        const placeId = placeJson.data?.[0]?.rootPlaceId || "Unknown";
 
-        const placeId = placeJson.data?.[0]?.rootPlaceId;
+        // PAGINATION SUPPORT
+        let pageToken = "";
+        let passes = [];
 
-        // GET GAMEPASSES
-        const passRes = await fetch(
-          `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100`
-        );
+        do {
 
-        const passJson = await passRes.json();
+          const passRes = await fetch(
+            `https://apis.roblox.com/game-passes/v1/universes/${universeId}/game-passes?passView=Full&pageSize=100&pageToken=${pageToken}`
+          );
 
-        const passes = passJson.data || passJson.gamePasses || [];
+          const passJson = await passRes.json();
+
+          const newPasses = passJson.data || passJson.gamePasses || [];
+
+          passes.push(...newPasses);
+
+          pageToken = passJson.nextPageToken || "";
+
+        } while (pageToken);
 
         if (!passes.length)
           continue;
 
         foundAny = true;
 
-        let text = `Place ID:\n\`\`\`\n${placeId}\n\`\`\`\n\n`;
+        let text =
+`Place ID
+\`\`\`
+${placeId}
+\`\`\`
+`;
 
         for (const pass of passes) {
 
@@ -101,7 +116,7 @@ module.exports = {
     } catch (err) {
 
       console.error(err);
-      interaction.editReply("Terjadi error saat mengambil data.");
+      interaction.editReply("Error mengambil data.");
 
     }
 
